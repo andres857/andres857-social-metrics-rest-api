@@ -89,7 +89,7 @@ def google_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
-            return redirect(f"{settings.FRONTEND_URL}/Auth/login")
+            return redirect(f"{settings.FRONTEND_URL}/Principal/main")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
     except Exception as e:
