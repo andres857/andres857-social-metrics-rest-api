@@ -22,6 +22,10 @@ from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
 from django.utils.translation import gettext as _
 
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_protect
+from allauth.account.views import LogoutView
+from django.contrib.auth import logout as auth_logout
 
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
@@ -167,3 +171,21 @@ class ForgotPasswordView(APIView):
             {'error': _('An error occurred. Please try again.')},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+@method_decorator(csrf_protect, name='dispatch')
+class CustomLogoutView(LogoutView):
+    def post(self, *args, **kwargs):
+        if self.request.user.is_authenticated:
+            self.logout()
+            return JsonResponse({
+                'success': True,
+                'message': 'Logout exitoso'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'No hay usuario autenticado'
+            }, status=400)
+
+    def logout(self):
+        auth_logout(self.request)
