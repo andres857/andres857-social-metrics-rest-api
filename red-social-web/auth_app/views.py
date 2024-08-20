@@ -18,6 +18,10 @@ import logging
 from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
 from .serializers import UserSerializer
 
+from allauth.account.forms import ResetPasswordForm
+from allauth.account.utils import send_email_confirmation
+from django.utils.translation import gettext as _
+
 
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
@@ -132,3 +136,34 @@ class LoginView(APIView):
         else:
             return Response({"detail": "Invalid credentials."},
                             status=status.HTTP_401_UNAUTHORIZED)
+
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response(
+                {'error': _('Email is required.')},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.filter(email=email).first()
+        if user:
+            # Se usa el formulario de ResetPasswordForm de allauth
+            form = ResetPasswordForm({'email': email})
+            if form.is_valid():
+                form.save(request)
+                return Response(
+                    {'message': _('Password reset e-mail has been sent.')},
+                    status=status.HTTP_200_OK
+                )
+        else:
+            # Si el usuario no existe, enviamos una respuesta genérica por seguridad
+            return Response(
+                {'message': _('If a user with this email exists, a password reset email will be sent.')},
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            {'error': _('An error occurred. Please try again.')},
+            status=status.HTTP_400_BAD_REQUEST
+        )
