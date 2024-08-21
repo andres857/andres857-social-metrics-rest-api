@@ -2,34 +2,39 @@ from django.shortcuts import render
 from django.shortcuts import redirect
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
-from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth import get_user_model
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from rest_framework.decorators import api_view
-import logging
-from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
 
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
+from allauth.account.views import LogoutView
+from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_protect
-from allauth.account.views import LogoutView
-from django.contrib.auth import logout as auth_logout
-
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from django.utils.decorators import method_decorator
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.core.exceptions import ValidationError
+import logging
+import json
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -189,3 +194,77 @@ class CustomLogoutView(LogoutView):
 
     def logout(self):
         auth_logout(self.request)
+
+# Validacion de Session
+@require_http_methods(["GET"])
+def auth_status(request):
+    return JsonResponse({
+        'is_authenticated': request.user.is_authenticated
+    })
+        
+@login_required
+@require_http_methods(["GET"])
+def user_profile(request):
+    user = request.user
+    return JsonResponse({
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'profile_picture': user.profile.picture_url if hasattr(user, 'profile') else None,
+        # Añade más campos según sea necesario
+    })
+
+@login_required
+@require_http_methods(["GET"])
+def user_detail(request):
+    user = request.user
+    return JsonResponse({
+        'id': user.id,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'username': user.username,
+        'is_active': user.is_active,
+        'date_joined': user.date_joined.isoformat(),
+        'last_login': user.last_login.isoformat() if user.last_login else None,
+        'profile_picture': user.profile.picture_url if hasattr(user, 'profile') else None,
+        # Añadir cualquier otro campo que se necesite
+    })
+    
+# vista para actualziar perfil
+@login_required
+@csrf_protect
+@require_http_methods(["PUT"])
+def update_profile(request):
+    user = request.user
+    data = json.loads(request.body)
+    
+    # Actualiza los campos del usuario
+    user.first_name = data.get('first_name', user.first_name)
+    user.last_name = data.get('last_name', user.last_name)
+    user.email = data.get('email', user.email)
+    
+    try:
+        user.full_clean()  # Valida los campos del usuario
+        user.save()
+        return JsonResponse({'message': 'El Perfil se ha actualizado'})
+    except ValidationError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+# vista para cambiar contraseña
+@login_required
+@csrf_protect
+@require_http_methods(["POST"])
+def change_password(request):
+    user = request.user
+    data = json.loads(request.body)
+    
+    form = PasswordChangeForm(user, data)
+    if form.is_valid():
+        user = form.save()
+        # Actualiza la sesión para que el usuario no sea desconectado
+        update_session_auth_hash(request, user)
+        return JsonResponse({'message': 'Contraseña modificada correctamente'})
+    else:
+        errors = {field: error.get_json_data() for field, error in form.errors.items()}
+        return JsonResponse({'error': errors}, status=400)
