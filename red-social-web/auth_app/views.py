@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest
 from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_protect
@@ -25,6 +25,8 @@ from .serializers import UserSerializer
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
 from allauth.account.views import LogoutView
+from allauth.account.views import PasswordResetFromKeyView
+from django.urls import reverse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
@@ -194,6 +196,47 @@ class CustomLogoutView(LogoutView):
 
     def logout(self):
         auth_logout(self.request)
+
+class CustomPasswordResetFromKeyView(APIView):
+    def post(self, request, uidb36, key):
+        password1 = request.data.get('new_password1')
+        password2 = request.data.get('new_password2')
+
+        if not password1 or not password2:
+            return Response({
+                'error': _('Missing required fields')
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if password1 != password2:
+            return Response({
+                'error': _('Passwords do not match')
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Crear una solicitud simulada para allauth
+        dummy_request = HttpRequest()
+        dummy_request.method = 'POST'
+        dummy_request.POST = request.data
+        dummy_request.META = request.META
+
+        # Construir la URL completa
+        full_path = reverse('account_reset_password_from_key', kwargs={'uidb36': uidb36, 'key': key})
+        dummy_request.path = full_path
+
+        # Usar la vista de allauth para procesar el restablecimiento
+        view = PasswordResetFromKeyView.as_view()
+        response = view(dummy_request, uidb36=uidb36, key=key)
+        
+        print(response)
+
+        if response.status_code == 200:  # Redirección exitosa
+            return Response({
+                'success': True,
+                'message': _('Password reset successfully')
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'error': _('Invalid or expired reset key')
+            }, status=status.HTTP_400_BAD_REQUEST)        
 
 # Validacion de Session
 @require_http_methods(["GET"])

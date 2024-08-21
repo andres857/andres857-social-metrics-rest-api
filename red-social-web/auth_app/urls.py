@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import LoginView, GetCSRFToken, ForgotPasswordView, CustomLogoutView, auth_status, user_detail, update_profile, change_password
+from .views import LoginView, GetCSRFToken, ForgotPasswordView, CustomLogoutView, CustomPasswordResetFromKeyView, auth_status, user_detail, update_profile, change_password
 
 urlpatterns = [
     # path('user-profile/', views.UserProfileView.as_view(), name='user_profile'),
@@ -7,6 +7,7 @@ urlpatterns = [
     path('logout/', CustomLogoutView.as_view(), name='custom_logout'),
     path('login/', LoginView.as_view(), name='login'),
     path('forgot-password/', ForgotPasswordView.as_view(), name='api_forgot_password'),
+    path('password/reset/key/<str:uidb36>-<str:key>/', CustomPasswordResetFromKeyView.as_view(),name='custom_password_reset_from_key'),
     
     path('user/detail/', user_detail, name='user_detail'),
     path('user/profile/', update_profile, name='update_profile'),
