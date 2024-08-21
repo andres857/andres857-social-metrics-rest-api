@@ -329,8 +329,16 @@ def get_social_metrics(request):
                 "date_collection": metric['date_collection'],
                 "engagement_rate": metric['engagment_rate']
             })
-        
+        # construir respuesta para la vista
+        data_processed = []
+        for institution in data:
+            print("----------------")
+            print(institution)
+
         return JsonResponse({"metrics": data})
     
     except TypeInstitution.DoesNotExist:
         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
+
+
+
