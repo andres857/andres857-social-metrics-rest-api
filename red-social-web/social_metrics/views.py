@@ -4,6 +4,10 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
+from django.db.models import Prefetch
+from django.core.serializers import serialize
+
+
 from .models import Institution, SocialNetwork, TypeInstitution, BaseMetrics
 from datetime import datetime
 from tabulate import tabulate
@@ -273,18 +277,50 @@ def procesar_datos_excel(request):
                 print("--------")
                 print("--------")
 
-            # for index, row in institucions_df.iterrows():
-            #     if row is not None:
-            #         # print(f"Nombre: {row['Institucion']}, Edad: {row['Ciudad']}, Ciudad: {row['Tipo']}")
-            #         print(row)
-
-            # print("\nEstadísticas resumidas:")
-            # print(df.describe())
-            
-            # print("\nCálculo de engagement rate para cada fila:")
-            # for _, row in df.iterrows():
-            #     engagement_rate = calcular_engagement_rate(row['likes'], row['seguidores'])
-            #     print(f"Institución ID: {row['institucion_id']}, Red Social ID: {row['red_social_id']}, Engagement Rate: {engagement_rate:.2f}%")
-
 def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
+
+# Consultas
+def get_social_metrics(request):
+    # Obtener el parámetro 'type' de la URL
+    institution_type = request.GET.get('type')
+    
+    if not institution_type:
+        return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+    
+    try:
+        # Obtener el tipo de institución
+        type_obj = TypeInstitution.objects.get(name=institution_type)
+        
+        # Filtrar las métricas basadas en el tipo de institución
+        metrics = BaseMetrics.objects.filter(
+            institution__type_institution=type_obj
+        ).select_related('institution', 'socialnetwork')
+        
+        # Serializar el QuerySet a JSON
+        metrics_json = serialize('json', metrics, 
+                                 use_natural_foreign_keys=True, 
+                                 use_natural_primary_keys=True)
+        
+        # Convertir la cadena JSON a una lista de diccionarios
+        metrics_list = json.loads(metrics_json)
+        
+        # Extraer solo los campos necesarios
+        data = []
+        print(metrics_list)
+        for item in metrics_list:
+            metric = item['fields']
+            data.append({
+                "institution": metric['institution'],
+                "social_network": metric['socialnetwork'],
+                "followers": metric['followers'],
+                "publications": metric['publications'],
+                "reactions": metric['reactions'],
+                "date_collection": metric['date_collection'],
+                "engagement_rate": metric['engagment_rate']
+            })
+        
+        return JsonResponse({"metrics": data})
+    
+    except TypeInstitution.DoesNotExist:
+        return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
