@@ -1,6 +1,6 @@
 import pandas as pd
 import json
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
@@ -281,6 +281,14 @@ def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
 
 # Consultas
+def get_name_institution_by_id(id):
+    institution = get_object_or_404(Institution, id=id)
+    return institution.name
+
+def get_name_social_network_by_id(id):
+    social_network = get_object_or_404(SocialNetwork, id=id)
+    return social_network.name
+
 def get_social_metrics(request):
     # Obtener el parámetro 'type' de la URL
     institution_type = request.GET.get('type')
@@ -310,9 +318,11 @@ def get_social_metrics(request):
         print(metrics_list)
         for item in metrics_list:
             metric = item['fields']
+            name_institution = get_name_institution_by_id(metric['institution'])
+            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
             data.append({
-                "institution": metric['institution'],
-                "social_network": metric['socialnetwork'],
+                "institution": name_institution,
+                "social_network": name_social_network,
                 "followers": metric['followers'],
                 "publications": metric['publications'],
                 "reactions": metric['reactions'],
