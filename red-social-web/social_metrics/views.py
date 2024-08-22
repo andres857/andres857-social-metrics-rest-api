@@ -349,13 +349,19 @@ def transform_data(metrics):
     result = {"metrics": institutions_list}
     return result
 
-def get_social_metrics(request):
+def manage_social_metrics(request):
     # Obtener el parámetro 'type' de la URL
+    year = request.GET.get('year')
     institution_type = request.GET.get('type')
-    
+    print(institution_type, year)
+
     if not institution_type:
-        return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
-    
+        # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+        return get_institutions_from_type('Educacion')
+    return get_institutions_from_type(institution_type)
+
+
+def get_institutions_from_type(institution_type):
     try:
         # Obtener el tipo de institución
         type_obj = TypeInstitution.objects.get(name=institution_type)
@@ -393,15 +399,12 @@ def get_social_metrics(request):
                 "engagement_rate": metric['engagment_rate']
             })
 
-        # construir respuesta para la vista
-        # data_processed = []
-        print(data)
         transformed_data = transform_data(data)
         print(transformed_data)
         return JsonResponse(transformed_data)
-    
+
     except TypeInstitution.DoesNotExist:
         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
 
-
- 
+# def get_institutions_from_type():
+#     pass
