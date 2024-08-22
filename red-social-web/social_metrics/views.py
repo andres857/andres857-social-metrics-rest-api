@@ -355,11 +355,12 @@ def manage_social_metrics(request):
     institution_type = request.GET.get('type')
     print(institution_type, year)
 
-    if not institution_type:
+    # if not institution_type:
         # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
-        return get_institutions_from_type('Educacion')
-    return get_institutions_from_type(institution_type)
+    if institution_type == "todos":
+        return get_all_institutions()
 
+    return get_institutions_from_type(institution_type)
 
 def get_institutions_from_type(institution_type):
     try:
@@ -406,5 +407,42 @@ def get_institutions_from_type(institution_type):
     except TypeInstitution.DoesNotExist:
         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
 
-# def get_institutions_from_type():
-#     pass
+def get_all_institutions():
+    try:
+        # Obtener todas las métricas sin aplicar filtros
+        metrics = BaseMetrics.objects.select_related('institution', 'socialnetwork')
+        
+        # Serializar el QuerySet a JSON
+        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
+        
+        # Convertir la cadena JSON a una lista de diccionarios
+        metrics_list = json.loads(metrics_json)
+        
+        # Extraer solo los campos necesarios
+        data = []
+        # print(metrics_list)
+        for item in metrics_list:
+            metric = item['fields']
+            institution = get_data_from_institution_by_id(metric['institution'])
+            type_institution = get_type_institution(institution.type_institution_id)
+            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+            
+            data.append({
+                "institution": institution.name,
+                "type": type_institution.name,
+                "city": institution.city,
+                "social_network": name_social_network,
+                "followers": metric['followers'],
+                "publications": metric['publications'],
+                "reactions": metric['reactions'],
+                "date_collection": metric['date_collection'],
+                "engagement_rate": metric['engagment_rate']
+            })
+        
+        transformed_data = transform_data(data)
+        print(transformed_data)
+        print("================================")
+        return JsonResponse(transformed_data)
+    
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
