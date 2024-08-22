@@ -1,9 +1,14 @@
 import pandas as pd
 import json
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
+from django.db.models import Prefetch
+from django.core.serializers import serialize
+from collections import defaultdict
+
+
 from .models import Institution, SocialNetwork, TypeInstitution, BaseMetrics
 from datetime import datetime
 from tabulate import tabulate
@@ -155,35 +160,47 @@ funciones para crear los registros desde el archivo excel
 def create_or_get_institution_from_excel( name , city, type_institution):
     url = 'http://test.image'        
     with transaction.atomic():
+        # crear el tipo de institution
         try:
             tipo_institucion = TypeInstitution.objects.get(name=type_institution)
         except TypeInstitution.DoesNotExist:
             print("11222")
             # Si no existe, crear uno nuevo
             tipo_institucion = TypeInstitution.objects.create(name=type_institution, url=url)
-
-        institution = Institution(
-            name=name,
-            city=city,
-            type_institution=tipo_institucion
-        )
-        institution.save()
-        print(institution)
+        
+        # crear la institution
+        try:
+            institution = Institution.objects.get(name=name)
+        except Institution.DoesNotExist:
+            institution = Institution.objects.create(
+                name=name,
+                city=city,
+                type_institution=tipo_institucion
+            )
+            # institution.save()
+            # print(institution)
         return institution.id 
 
 def create_metrics_from_excel(followers,publications,reactions,date_collection,institution_id, socialnetwork_id):
-    
-    with transaction.atomic():
-        metrics = BaseMetrics(
-            followers=followers,
-            publications=publications,
-            reactions=reactions,
-            date_collection=date_collection,
-            institution_id= institution_id,
-            socialnetwork_id= socialnetwork_id
-        )
-        metrics.save()
-        
+    # Validación y seteo a 0 para métricas no proporcionadas
+    followers = followers if followers is not None else 0
+    publications = publications if publications is not None else 0
+    reactions = reactions if reactions is not None else 0
+    try:
+        with transaction.atomic():
+            metrics = BaseMetrics(
+                followers=followers,
+                publications=publications,
+                reactions=reactions,
+                date_collection=date_collection,
+                institution_id= institution_id,
+                socialnetwork_id= socialnetwork_id
+            )
+            metrics.save()
+    except Exception as e:
+        # Capturar cualquier otra excepción no prevista
+        raise ValueError(f"Error inesperado al crear las métricas: {str(e)}, {socialnetwork_id}")
+
 """"
 funciones para crear los registros desde el archivo excel
 """
@@ -217,16 +234,20 @@ def procesar_datos_excel(request):
                 type_institution = row.iloc[2]
                 
                 institution_id = create_or_get_institution_from_excel(name_institution, city, type_institution);
-
+                print("instituion id: ",institution_id)
                 followers_facebook = row.iloc[3]
                 publications_facebook = row.iloc[4]    
                 interactions_facebook = row.iloc[5]    
+                print(followers_facebook,publications_facebook,interactions_facebook,interactions_facebook)
+                
                 # for faceboook
                 create_metrics_from_excel(followers_facebook, publications_facebook, interactions_facebook, fecha_recoleccion, institution_id, 1)
 
                 followers_X = row.iloc[6]    
                 publications_X = row.iloc[7]    
                 interactions_X = row.iloc[8] 
+                print(f"Followers Facebook: {followers_facebook}")
+                
                 # for twitter
                 create_metrics_from_excel(followers_X, publications_X, interactions_facebook, fecha_recoleccion, institution_id, 3)
 
@@ -273,18 +294,114 @@ def procesar_datos_excel(request):
                 print("--------")
                 print("--------")
 
-            # for index, row in institucions_df.iterrows():
-            #     if row is not None:
-            #         # print(f"Nombre: {row['Institucion']}, Edad: {row['Ciudad']}, Ciudad: {row['Tipo']}")
-            #         print(row)
-
-            # print("\nEstadísticas resumidas:")
-            # print(df.describe())
-            
-            # print("\nCálculo de engagement rate para cada fila:")
-            # for _, row in df.iterrows():
-            #     engagement_rate = calcular_engagement_rate(row['likes'], row['seguidores'])
-            #     print(f"Institución ID: {row['institucion_id']}, Red Social ID: {row['red_social_id']}, Engagement Rate: {engagement_rate:.2f}%")
-
 def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
+
+# Consultas
+def get_data_from_institution_by_id(id):
+    institution = get_object_or_404(Institution, id=id)
+    # type_institution = get_object_or_404(TypeInstitution, id=institution.type_institution_id)
+    # print(type_institution)
+    return institution
+
+def get_type_institution(id):
+    type_institution = get_object_or_404(TypeInstitution, id=id)
+    return type_institution
+
+def get_name_social_network_by_id(id):
+    social_network = get_object_or_404(SocialNetwork, id=id)
+    return social_network.name
+
+def transform_data(metrics):
+    institutions = {}
+
+    for metric in metrics:
+        institution_name = metric["institution"]
+        social_network = metric["social_network"]
+        city = metric["city"]
+        type_institution = metric["type"]
+
+        if institution_name not in institutions:
+            institutions[institution_name] = {
+                "Institucion": institution_name,
+                "Ciudad": city,
+                "Tipo": type_institution,
+                "social_networks": {
+                    "Facebook": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "Instagram": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "Tiktok": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "X": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "YouTube": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None}
+                }
+            }
+        
+        institutions[institution_name]["social_networks"][social_network].update({
+            "followers": metric["followers"],
+            "publications": metric["publications"],
+            "reactions": metric["reactions"],
+            "engagement": metric["engagement_rate"]
+        })
+
+    # Convertir el diccionario de instituciones a una lista
+    institutions_list = list(institutions.values())
+
+    # Crear la estructura final
+    result = {"metrics": institutions_list}
+    return result
+
+def get_social_metrics(request):
+    # Obtener el parámetro 'type' de la URL
+    institution_type = request.GET.get('type')
+    
+    if not institution_type:
+        return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+    
+    try:
+        # Obtener el tipo de institución
+        type_obj = TypeInstitution.objects.get(name=institution_type)
+        
+        # Filtrar las métricas basadas en el tipo de institución
+        metrics = BaseMetrics.objects.filter(
+            institution__type_institution=type_obj
+        ).select_related('institution', 'socialnetwork')
+        
+        # Serializar el QuerySet a JSON
+        metrics_json = serialize('json', metrics, 
+            use_natural_foreign_keys=True, 
+            use_natural_primary_keys=True)
+        
+        # Convertir la cadena JSON a una lista de diccionarios
+        metrics_list = json.loads(metrics_json)
+        
+        # Extraer solo los campos necesarios
+        data = []
+        print(metrics_list)
+        for item in metrics_list:
+            metric = item['fields']
+            institution = get_data_from_institution_by_id(metric['institution']) 
+            type_institution = get_type_institution(institution.type_institution_id)
+            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+            data.append({
+                "institution": institution.name,
+                "type": type_institution.name,
+                "city": institution.city,
+                "social_network": name_social_network,
+                "followers": metric['followers'],
+                "publications": metric['publications'],
+                "reactions": metric['reactions'],
+                "date_collection": metric['date_collection'],
+                "engagement_rate": metric['engagment_rate']
+            })
+
+        # construir respuesta para la vista
+        # data_processed = []
+        print(data)
+        transformed_data = transform_data(data)
+        print(transformed_data)
+        return JsonResponse(transformed_data)
+    
+    except TypeInstitution.DoesNotExist:
+        return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
+
+
+ 
