@@ -318,12 +318,14 @@ def transform_data(metrics):
     for metric in metrics:
         institution_name = metric["institution"]
         social_network = metric["social_network"]
-        
+        city = metric["city"]
+        type_institution = metric["type"]
+
         if institution_name not in institutions:
             institutions[institution_name] = {
                 "Institucion": institution_name,
-                "Ciudad": "Nacional",
-                "Tipo": "Org. Profesionales",
+                "Ciudad": city,
+                "Tipo": type_institution,
                 "social_networks": {
                     "Facebook": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
                     "Instagram": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
@@ -390,12 +392,12 @@ def get_social_metrics(request):
                 "date_collection": metric['date_collection'],
                 "engagement_rate": metric['engagment_rate']
             })
+
         # construir respuesta para la vista
         # data_processed = []
         print(data)
         transformed_data = transform_data(data)
         print(transformed_data)
-        # print(final_structure)
         return JsonResponse(transformed_data)
     
     except TypeInstitution.DoesNotExist:
