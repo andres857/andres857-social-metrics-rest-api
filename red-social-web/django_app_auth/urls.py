@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from auth_app.views import google_login, google_callback, GoogleLogin
+from auth_app.views import google_login, google_callback, linkedin_login, linkedin_callback, GoogleLogin
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -25,5 +25,7 @@ urlpatterns = [
     path('auth/google/login/', google_login, name='google_login'),
     path('auth/google/callback/', google_callback, name='google_callback'),
     path('auth/google/', GoogleLogin.as_view(), name='google_login_api'),
+    path('auth/linkedin/login/', linkedin_login, name='linkedin_login'),
+    path('auth/linkedin/callback/', linkedin_callback, name='linkedin_callback'),
     path('api/social-metrics/', include('social_metrics.urls')),
 ]
