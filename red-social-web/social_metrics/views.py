@@ -298,13 +298,54 @@ def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
 
 # Consultas
-def get_name_institution_by_id(id):
+def get_data_from_institution_by_id(id):
     institution = get_object_or_404(Institution, id=id)
-    return institution.name
+    # type_institution = get_object_or_404(TypeInstitution, id=institution.type_institution_id)
+    # print(type_institution)
+    return institution
+
+def get_type_institution(id):
+    type_institution = get_object_or_404(TypeInstitution, id=id)
+    return type_institution
 
 def get_name_social_network_by_id(id):
     social_network = get_object_or_404(SocialNetwork, id=id)
     return social_network.name
+
+def transform_data(metrics):
+    institutions = {}
+
+    for metric in metrics:
+        institution_name = metric["institution"]
+        social_network = metric["social_network"]
+        
+        if institution_name not in institutions:
+            institutions[institution_name] = {
+                "Institucion": institution_name,
+                "Ciudad": "Nacional",
+                "Tipo": "Org. Profesionales",
+                "social_networks": {
+                    "Facebook": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "Instagram": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "Tiktok": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "X": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
+                    "YouTube": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None}
+                }
+            }
+        
+        institutions[institution_name]["social_networks"][social_network].update({
+            "followers": metric["followers"],
+            "publications": metric["publications"],
+            "reactions": metric["reactions"],
+            "engagement": metric["engagement_rate"]
+        })
+
+    # Convertir el diccionario de instituciones a una lista
+    institutions_list = list(institutions.values())
+
+    # Crear la estructura final
+    result = {"metrics": institutions_list}
+    return result
 
 def get_social_metrics(request):
     # Obtener el parámetro 'type' de la URL
@@ -332,12 +373,16 @@ def get_social_metrics(request):
         
         # Extraer solo los campos necesarios
         data = []
+        print(metrics_list)
         for item in metrics_list:
             metric = item['fields']
-            name_institution = get_name_institution_by_id(metric['institution'])
+            institution = get_data_from_institution_by_id(metric['institution']) 
+            type_institution = get_type_institution(institution.type_institution_id)
             name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
             data.append({
-                "institution": name_institution,
+                "institution": institution.name,
+                "type": type_institution.name,
+                "city": institution.city,
                 "social_network": name_social_network,
                 "followers": metric['followers'],
                 "publications": metric['publications'],
@@ -347,24 +392,14 @@ def get_social_metrics(request):
             })
         # construir respuesta para la vista
         # data_processed = []
-        grouped_data = defaultdict(lambda: defaultdict(dict))
-        for metric in data:
-            institution = metric['institution']
-            social_network = metric['social_network']
-            
-            # Crear o actualizar el diccionario para cada red social bajo la institución correspondiente
-            grouped_data[institution][social_network] = {
-                "followers": metric["followers"],
-                "publications": metric["publications"],
-                "reactions": metric["reactions"],
-                "engagement": metric["engagement_rate"]  # Puedes calcular el engagement si es necesario
-            }
-        print(grouped_data)
-        # Convertir defaultdict a dict para una estructura final más limpia
-        final_structure = {institution: {"social_networks": dict(social_networks)} 
-                   for institution, social_networks in grouped_data.items()}
-        print(final_structure)
-        return JsonResponse({"metrics": final_structure})
+        print(data)
+        transformed_data = transform_data(data)
+        print(transformed_data)
+        # print(final_structure)
+        return JsonResponse(transformed_data)
     
     except TypeInstitution.DoesNotExist:
         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
+
+
+ 
