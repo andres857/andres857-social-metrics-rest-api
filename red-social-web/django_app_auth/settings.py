@@ -62,7 +62,7 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.0.24:3000",  # Ajusta esto a la URL de tu frontend
+    "http://192.168.0.24",  # Ajusta esto a la URL de tu frontend
 ]
 
 
