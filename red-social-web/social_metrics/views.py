@@ -356,8 +356,9 @@ def manage_social_metrics(request):
     # if not institution_type:
         # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
     if institution_type == "todos":
-        return get_all_institutions()
-
+        # return get_all_institutions()
+        return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+    
     # return get_institutions_from_type(institution_type)
     return get_metrics_by_date(date(2021, 6, 1))
 
