@@ -31,6 +31,7 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.linkedin_oauth2.views import LinkedInOAuth2Adapter
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 
@@ -54,6 +55,40 @@ class UserProfileView(APIView):
             'last_name': user.last_name
         }
         return Response(data)
+    
+    
+# LinkedIn
+
+class LinkedInLogin(SocialLoginView):
+    adapter_class = LinkedInOAuth2Adapter
+    callback_url = settings.LINKEDIN_CALLBACK_URL
+    client_class = OAuth2Client
+
+@api_view(['GET'])
+def linkedin_login(request):
+    return Response({'login_url': f"{settings.BASE_URL}/accounts/linkedin_oauth2/login/"})
+
+@api_view(['GET'])
+def linkedin_callback(request):
+    logger.debug(f"Callback URL: {request.build_absolute_uri()}")
+    logger.debug(f"Query params: {request.GET}")
+
+    try:
+        # Use the OAuth2CallbackView directly
+        adapter = LinkedInOAuth2Adapter(request)
+        callback_view = OAuth2CallbackView.adapter_view(LinkedInOAuth2Adapter)
+        response = callback_view(request)
+        
+        # If authentication is successful, create or get a token
+        if request.user.is_authenticated:
+            refresh = RefreshToken.for_user(request.user)
+            return redirect(f"{settings.FRONTEND_URL}/Principal/main")
+        else:
+            return redirect(f"{settings.FRONTEND_URL}/login-failed")
+    except Exception as e:
+        logger.error(f"Unexpected error during LinkedIn callback: {str(e)}", exc_info=True)
+        return redirect(f"{settings.FRONTEND_URL}/login-error")
+
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter

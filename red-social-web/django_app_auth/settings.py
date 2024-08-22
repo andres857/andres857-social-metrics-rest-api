@@ -10,6 +10,7 @@ SECRET_KEY = 'django-insecure-_20tbl%h8v*e#6wp%y758+w0ulg-w-c#5banfbp^f2)h@dpt(h
 BASE_URL = 'http://localhost:8000'
 FRONTEND_URL = 'http://localhost:3000'
 GOOGLE_CALLBACK_URL = f"{BASE_URL}/auth/google/callback/"
+LINKEDIN_CALLBACK_URL = f"{BASE_URL}/api/linkedin/callback/"
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8000/auth/google/callback/'
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.linkedin_oauth2',
     'auth_app',
     'social_metrics',
 ]
@@ -117,6 +119,14 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         }
+    },
+    'linkedin_oauth2': {
+        'SCOPE': [
+            'openid',
+            'profile',
+            'email'
+        ],
+        'VERIFIED_EMAIL': True
     }
 }
 
