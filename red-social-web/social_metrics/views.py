@@ -4,7 +4,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Q
 from django.core.serializers import serialize
 from collections import defaultdict
 from datetime import date
@@ -348,60 +348,19 @@ def transform_data(metrics):
     return result
 
 def manage_social_metrics(request):
-    # Obtener el parámetro 'type' de la URL
-    year = request.GET.get('year')
-    institution_type = request.GET.get('type')
-    print(institution_type, year)
 
-    # if not institution_type:
-        # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+    institution_type = request.GET.get('type')
+    print(institution_type, date)
+
     if institution_type == "todos":
+        return get_metrics_by_date(request)
         # return get_all_institutions()
-        return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
+        # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
     
     # return get_institutions_from_type(institution_type)
-    return get_metrics_by_date(date(2021, 6, 1))
-
-def get_all_institutions():
-    try:
-        # Obtener todas las métricas sin aplicar filtros
-        metrics = BaseMetrics.objects.select_related('institution', 'socialnetwork')
-        
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
-        
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
-        
-        # Extraer solo los campos necesarios
-        data = []
-        # print(metrics_list)
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution'])
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "engagement_rate": metric['engagment_rate']
-            })
-        
-        transformed_data = transform_data(data)
-        print(transformed_data)
-        print("================================")
-        return JsonResponse(transformed_data)
-    
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
+    # return get_metrics_by_date(date(2020, 12, 1))
+    # return get_metrics_by_date(date_obj)
+    return get_metrics_by_type_and_date(request)
 
 def get_institutions_from_type(institution_type):
     try:
@@ -448,7 +407,10 @@ def get_institutions_from_type(institution_type):
     except TypeInstitution.DoesNotExist:
         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
 
-def get_metrics_by_date(target_date):
+def get_metrics_by_date(request):
+    date_str = request.GET.get('date')
+    target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
+    print(target_date)
     try:
         # Filtrar las métricas por la fecha específica
         metrics = BaseMetrics.objects.filter(date_collection=target_date).select_related('institution', 'socialnetwork')
@@ -485,3 +447,95 @@ def get_metrics_by_date(target_date):
     
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+    
+def get_metrics_by_type_and_date(request):
+    try:
+        # Obtener los parámetros de la URL
+        institution_type = request.GET.get('type')
+        date_str = request.GET.get('date')
+
+        # Convertir la fecha de string a objeto date
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
+
+        # Construir el filtro
+        filter_conditions = Q()
+        if institution_type:
+            filter_conditions &= Q(institution__type_institution__name=institution_type)
+        if target_date:
+            filter_conditions &= Q(date_collection=target_date)
+
+        # Aplicar los filtros
+        metrics = BaseMetrics.objects.filter(filter_conditions).select_related('institution', 'socialnetwork')
+
+        # Serializar el QuerySet a JSON
+        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
+
+        # Convertir la cadena JSON a una lista de diccionarios
+        metrics_list = json.loads(metrics_json)
+
+        # Procesar y transformar los datos
+        data = []
+        for item in metrics_list:
+            metric = item['fields']
+            institution = get_data_from_institution_by_id(metric['institution'])
+            type_institution = get_type_institution(institution.type_institution_id)
+            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+
+            data.append({
+                "institution": institution.name,
+                "type": type_institution.name,
+                "city": institution.city,
+                "social_network": name_social_network,
+                "followers": metric['followers'],
+                "publications": metric['publications'],
+                "reactions": metric['reactions'],
+                "date_collection": metric['date_collection'],
+                "engagement_rate": metric['engagment_rate']
+            })
+
+        transformed_data = transform_data(data)
+
+        return JsonResponse(transformed_data, safe=False)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+# def get_all_institutions():
+#     try:
+#         # Obtener todas las métricas sin aplicar filtros
+#         metrics = BaseMetrics.objects.select_related('institution', 'socialnetwork')
+        
+#         # Serializar el QuerySet a JSON
+#         metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
+        
+#         # Convertir la cadena JSON a una lista de diccionarios
+#         metrics_list = json.loads(metrics_json)
+        
+#         # Extraer solo los campos necesarios
+#         data = []
+#         # print(metrics_list)
+#         for item in metrics_list:
+#             metric = item['fields']
+#             institution = get_data_from_institution_by_id(metric['institution'])
+#             type_institution = get_type_institution(institution.type_institution_id)
+#             name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+            
+#             data.append({
+#                 "institution": institution.name,
+#                 "type": type_institution.name,
+#                 "city": institution.city,
+#                 "social_network": name_social_network,
+#                 "followers": metric['followers'],
+#                 "publications": metric['publications'],
+#                 "reactions": metric['reactions'],
+#                 "date_collection": metric['date_collection'],
+#                 "engagement_rate": metric['engagment_rate']
+#             })
+        
+#         transformed_data = transform_data(data)
+#         print(transformed_data)
+#         print("================================")
+#         return JsonResponse(transformed_data)
+    
+#     except Exception as e:
+#         return JsonResponse({"error": str(e)}, status=500)
