@@ -18,7 +18,17 @@ from django.contrib import admin
 from django.urls import path, include
 from auth_app.views import google_login, google_callback, linkedin_login, linkedin_callback, GoogleLogin
 
+from django.conf.urls import handler404, handler500
+
+handler404 = 'auth_app.views.custom_404'
+handler500 = 'auth_app.views.custom_500'
+
+# Vista de prueba errores 500
+# def homepage_view(request):
+#    raise Exception("This is a test error")
+
 urlpatterns = [
+    #path("", homepage_view),  # new
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('api/', include('auth_app.urls')),
