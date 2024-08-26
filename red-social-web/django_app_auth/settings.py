@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.linkedin_oauth2',
     'auth_app',
     'social_metrics',
+    'payment'
 ]
 
 SITE_ID = 1
@@ -61,12 +62,12 @@ MIDDLEWARE = [
 #     # URL del frontend
 #     "http://localhost:3000"
 # ]
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://192.168.0.24",  # Ajusta esto a la URL de tu frontend
 ]
-
 
 # permitir credenciales (cookies, headers de autorización)
 CORS_ALLOW_CREDENTIALS = True
