@@ -39,6 +39,18 @@ from django.core.exceptions import ValidationError
 import logging
 import json
 
+from django.template import RequestContext
+
+def custom_404(request, exception):
+    response = render(request, 'Errors/404.html', {})
+    response.status_code = 404
+    return response
+
+def custom_500(request, *args, **argv):
+    response = render(request, 'Errors/500.html', {})
+    response.status_code = 500
+    return response
+
 # Logger
 logger = logging.getLogger(__name__)
 
