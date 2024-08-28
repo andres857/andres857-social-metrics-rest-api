@@ -19,22 +19,6 @@ services:
     networks:
       - app-network
 
-  # db-mysql:
-  #   image: mysql:8.0
-  #   restart: unless-stopped
-  #   ports:
-  #     - 3312:3306
-  #   environment:
-  #     - MYSQL_DATABASE=${DB_DATABASE}
-  #     - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-  #     - MYSQL_PASSWORD=${DB_PASSWORD}
-  #     - MYSQL_USER=${DB_USERNAME}
-  #     - TZ= UTC
-  #   volumes:
-  #     - ./mysql/data:/var/lib/mysql
-  #   command:  --default-authentication-plugin=caching_sha2_password
-    
-
 networks:
-  app-network:
+  mysql-network:
     driver: bridge
