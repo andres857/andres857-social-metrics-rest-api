@@ -8,11 +8,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-_20tbl%h8v*e#6wp%y758+w0ulg-w-c#5banfbp^f2)h@dpt(h'
 
 BASE_URL = 'https://api-social-stats.windowschannel.us'
-FRONTEND_URL = 'https://redes-sociales.windowschannel.us'
+FRONTEND_URL = 'http://localhost:3000'
 GOOGLE_CALLBACK_URL = f"{BASE_URL}/auth/google/callback/"
 LINKEDIN_CALLBACK_URL = f"{BASE_URL}/auth/linkedin/callback/"
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'https://api-social-stats.windowschannel.us/auth/google/callback/'
-SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = 'https://api-social-stats.windowschannel.us/auth/google/callback/'
+SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = 'http://localhost:3000/auth/google/callback/'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
