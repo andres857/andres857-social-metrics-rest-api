@@ -38,4 +38,5 @@ urlpatterns = [
     path('auth/linkedin/login/', linkedin_login, name='linkedin_login'),
     path('auth/linkedin/callback/', linkedin_callback, name='linkedin_callback'),
     path('api/social-metrics/', include('social_metrics.urls')),
+    path('payment/', include('payment.urls')),
 ]

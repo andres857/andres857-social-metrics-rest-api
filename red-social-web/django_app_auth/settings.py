@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.linkedin_oauth2',
     'auth_app',
     'social_metrics',
+    'payment'
 ]
 
 SITE_ID = 1
