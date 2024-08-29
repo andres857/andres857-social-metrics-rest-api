@@ -29,4 +29,4 @@ class BaseMetrics(models.Model):
     publications = models.BigIntegerField()
     reactions = models.BigIntegerField()
     date_collection = models.DateField(blank=True, null=True)
-    engagment_rate = models.FloatField(blank=True, null=True)
+    Average_views = models.FloatField(blank=True, null=True)

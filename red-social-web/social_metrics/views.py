@@ -1,14 +1,15 @@
 import pandas as pd
-import json
+import json, os, requests
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.db.models import Q
 from django.core.serializers import serialize
+from django.conf import settings
 from collections import defaultdict
 from datetime import date
-
 from .models import Institution, SocialNetwork, TypeInstitution, BaseMetrics
 from datetime import datetime
 from tabulate import tabulate
@@ -157,6 +158,10 @@ def create_metrics(request):
 """"
 funciones para crear los registros desde el archivo excel
 """
+def convertir_nombre_pestana_a_fecha(nombre_pestana):
+    # Asumiendo que el nombre de la pestaña está en formato 'YYYY-MM'
+    return datetime.strptime(nombre_pestana, '%Y-%m')
+
 def create_or_get_institution_from_excel( name , city, type_institution):
     url = 'http://test.image'        
     with transaction.atomic():
@@ -182,16 +187,24 @@ def create_or_get_institution_from_excel( name , city, type_institution):
         return institution.id 
 
 def create_metrics_from_excel(followers,publications,reactions,date_collection,institution_id, socialnetwork_id):
-    # Validación y seteo a 0 para métricas no proporcionadas
-    followers = followers if followers is not None else 0
-    publications = publications if publications is not None else 0
-    reactions = reactions if reactions is not None else 0
+    # Validación y seteo a 0 para métricas no proporcionadas o NaN
+    followers = 0 if pd.isna(followers) else max(0, float(followers))
+    publications = 0 if pd.isna(publications) else max(0, float(publications))
+    reactions = 0 if pd.isna(reactions) else max(0, float(reactions))
+
+    # Cálculo de average_views
+    if publications > 0:
+        average_views = reactions / publications
+    else:
+        average_views = 0  # o podrías usar None si prefieres indicar que no se puede calcular
+
     try:
         with transaction.atomic():
             metrics = BaseMetrics(
                 followers=followers,
                 publications=publications,
                 reactions=reactions,
+                Average_views=average_views,
                 date_collection=date_collection,
                 institution_id= institution_id,
                 socialnetwork_id= socialnetwork_id
@@ -201,13 +214,82 @@ def create_metrics_from_excel(followers,publications,reactions,date_collection,i
         # Capturar cualquier otra excepción no prevista
         raise ValueError(f"Error inesperado al crear las métricas: {str(e)}, {socialnetwork_id}")
 
-""""
-funciones para crear los registros desde el archivo excel
-"""
+def get_channel_stats_youtube(channel):
+    print("////////////////////////////////")
+    print(channel)
+    print("////////////////////////////////")
 
-def convertir_nombre_pestana_a_fecha(nombre_pestana):
-    # Asumiendo que el nombre de la pestaña está en formato 'YYYY-MM'
-    return datetime.strptime(nombre_pestana, '%Y-%m')
+    api_key = settings.YOUTUBE_API_KEY
+
+    if not api_key:
+        raise ValueError(f"API key YOUTUBE no configurada")
+    if pd.isna(channel) or channel == '' or channel is None:
+        return {
+            'subscriber_count': 0,
+            'views': 0,
+            'video_count': 0,
+        }
+    base_url = 'https://www.googleapis.com/youtube/v3/channels'
+    
+    # Determinar si es un ID de canal o un nombre de usuario/handle
+    if channel.startswith('UC'):
+        params = {
+            'part': 'snippet,contentDetails,statistics',
+            'id': channel,
+            'key': api_key
+        }
+    else:
+        # Si comienza con @, quitamos el @ para la búsqueda
+        if channel.startswith('@'):
+            channel = channel[1:]
+        params = {
+            'part': 'snippet,contentDetails,statistics',
+            'forUsername': channel,
+            'key': api_key
+        }
+
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        if not data.get('items'):
+            # Si no se encuentra el canal por username, intentamos buscar por handle
+            if 'forUsername' in params:
+                params = {
+                    'part': 'snippet,contentDetails,statistics',
+                    'forHandle': f'@{channel}',
+                    'key': api_key
+                }
+                response = requests.get(base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+            if not data.get('items'):
+                # return JsonResponse({'error': 'No se encontró el canal'}, status=404)
+                raise ValueError(f"No se encontró el canal: {str(e)}")
+
+        channel_info = data['items'][0]
+        statistics = channel_info['statistics']
+        print("FUNCTION STATS YOUTUBE")
+
+        # return JsonResponse({
+        #     'subscriber_count': statistics.get('subscriberCount', 'N/A'),
+        #     'view_count': statistics['viewCount'],
+        #     'video_count': statistics['videoCount'],
+        # })
+        return {
+            'subscriber_count': statistics.get('subscriberCount', 'N/A'),
+            'views': statistics['viewCount'],
+            'video_count': statistics['videoCount'],
+        }
+    except Exception as e:
+        # Capturar cualquier otra excepción no prevista
+        raise ValueError(f"Error inesperado al crear las métricas YOUTUBE: {str(e)}", channel)
+
+""""
+END funciones para crear los registros desde el archivo excel
+"""
 
 def procesar_datos_excel(request):
     if "GET" == request.method:
@@ -230,44 +312,48 @@ def procesar_datos_excel(request):
             for index, row in df.iterrows():
 
                 name_institution = row.iloc[0]
-                city = row.iloc[1]
-                type_institution = row.iloc[2]
+                channel_youtube = row.iloc[1]
+                city = row.iloc[2]
+                type_institution = row.iloc[3]
                 
                 institution_id = create_or_get_institution_from_excel(name_institution, city, type_institution);
                 print("instituion id: ",institution_id)
-                followers_facebook = row.iloc[3]
-                publications_facebook = row.iloc[4]    
-                interactions_facebook = row.iloc[5]    
+                followers_facebook = row.iloc[4]
+                publications_facebook = row.iloc[5]    
+                interactions_facebook = row.iloc[6]    
                 print(followers_facebook,publications_facebook,interactions_facebook,interactions_facebook)
                 
                 # for faceboook
                 create_metrics_from_excel(followers_facebook, publications_facebook, interactions_facebook, fecha_recoleccion, institution_id, 1)
 
-                followers_X = row.iloc[6]    
-                publications_X = row.iloc[7]    
-                interactions_X = row.iloc[8] 
+                followers_X = row.iloc[7]    
+                publications_X = row.iloc[8]    
+                interactions_X = row.iloc[9] 
                 print(f"Followers Facebook: {followers_facebook}")
                 
                 # for twitter
                 create_metrics_from_excel(followers_X, publications_X, interactions_facebook, fecha_recoleccion, institution_id, 3)
 
-                followers_instagram = row.iloc[9]    
-                publications_instagram = row.iloc[10]    
-                interactions_instagram = row.iloc[11]    
+                followers_instagram = row.iloc[10]    
+                publications_instagram = row.iloc[11]    
+                interactions_instagram = row.iloc[12]    
                 
                 # for instagram
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id, 4)
 
-                followers_yt = row.iloc[12]    
-                publications_yt = row.iloc[13]    
-                interactions_yt = row.iloc[14]
+                followers_yt = row.iloc[13]    
+                publications_yt = row.iloc[14]    
+                interactions_yt = row.iloc[15]
 
                 # for youtube
-                create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id, 5)
+                stats_youtube = get_channel_stats_youtube(channel_youtube)
+                print("--------------------------------")
+                print(stats_youtube)
+                create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id, 5)
 
-                followers_tiktok = row.iloc[15]    
-                publications_tiktok = row.iloc[16]    
-                interactions_tiktok = row.iloc[17]  
+                followers_tiktok = row.iloc[16]    
+                publications_tiktok = row.iloc[17]    
+                interactions_tiktok = row.iloc[18]  
 
                 # for tiktok
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id, 7)
@@ -499,54 +585,11 @@ def get_metrics_by_type_and_date(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
-# def get_all_institutions():
-#     try:
-#         # Obtener todas las métricas sin aplicar filtros
-#         metrics = BaseMetrics.objects.select_related('institution', 'socialnetwork')
-        
-#         # Serializar el QuerySet a JSON
-#         metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
-        
-#         # Convertir la cadena JSON a una lista de diccionarios
-#         metrics_list = json.loads(metrics_json)
-        
-#         # Extraer solo los campos necesarios
-#         data = []
-#         # print(metrics_list)
-#         for item in metrics_list:
-#             metric = item['fields']
-#             institution = get_data_from_institution_by_id(metric['institution'])
-#             type_institution = get_type_institution(institution.type_institution_id)
-#             name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            
-#             data.append({
-#                 "institution": institution.name,
-#                 "type": type_institution.name,
-#                 "city": institution.city,
-#                 "social_network": name_social_network,
-#                 "followers": metric['followers'],
-#                 "publications": metric['publications'],
-#                 "reactions": metric['reactions'],
-#                 "date_collection": metric['date_collection'],
-#                 "engagement_rate": metric['engagment_rate']
-#             })
-        
-#         transformed_data = transform_data(data)
-#         print(transformed_data)
-#         print("================================")
-#         return JsonResponse(transformed_data)
-    
-#     except Exception as e:
-#         return JsonResponse({"error": str(e)}, status=500)
 
-import os
-import requests
-from django.http import JsonResponse
-from django.conf import settings
-
-def get_channel_stats_youtube(request):
-    query = request.GET.get('query', '')
+# function for API request handling
+def get_channel_stats_youtube_api_function(request):
+    query = request.GET.get('channel', '')
+    print("Channel", query)
     api_key = settings.YOUTUBE_API_KEY
 
     if not api_key:
@@ -593,6 +636,9 @@ def get_channel_stats_youtube(request):
 
         channel_info = data['items'][0]
         statistics = channel_info['statistics']
+        print (statistics)
+        print('--------------------------------')
+        print (channel_info)
 
         return JsonResponse({
             'channel_name': channel_info['snippet']['title'],
@@ -611,8 +657,6 @@ def get_channel_stats_youtube(request):
     except Exception as e:
         return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
     
-    
-
 @csrf_exempt
 def bulk_channel_stats(request):
     if request.method != 'POST':
