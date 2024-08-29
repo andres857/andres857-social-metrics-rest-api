@@ -1,11 +1,15 @@
+import os
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse, JsonResponse
 
-# Create your views here.
+
 # Mercado Pago SDK
 import mercadopago
 # Add Your credentials
-sdk = mercadopago.SDK("TEST-2257382645000907-082609-b944241f78735358b13ef72bca5af650-147076003")
+
+MEI_TOKEN =  os.environ.get('MEI_TOKEN')
+sdk = mercadopago.SDK(MEI_TOKEN)
 
 @csrf_exempt
 def create_order_t(request):
@@ -13,13 +17,14 @@ def create_order_t(request):
     preference_data = {
         "items": [
             {
-                "title": "Item 1",
+                "title": "Acceso a estadisticas",
                 "quantity": 1,
-                "unit_price": 2500
+                "unit_price": 200
             }
         ]
     }
     preference_response = sdk.preference().create(preference_data)
     print(preference_response)
     preference = preference_response["response"]
-    return preference
+    return JsonResponse(preference, status=201)
+
