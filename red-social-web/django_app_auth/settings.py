@@ -14,7 +14,6 @@ LINKEDIN_CALLBACK_URL = f"{BASE_URL}/auth/linkedin/callback/"
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'https://api-social-stats.windowschannel.us/auth/google/callback/'
 SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = 'https://api-social-stats.windowschannel.us/auth/google/callback/'
 
-YOUTUBE_API_KEY=''
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -34,7 +33,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'dj_rest_auth',
     'corsheaders',
-    #'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -60,15 +58,16 @@ MIDDLEWARE = [
 ]
 
 # Permite solicitudes desde tu frontend
-# CORS_ALLOWED_ORIGINS = [
-#     # URL del frontend
-#     "http://localhost:3000"
-# ]
-
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    # URL del frontend
+    "http://localhost:3000"
+]
+# CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://api-social-stats.windowschannel.us",
     "https://redes-sociales.windowschannel.us",  # Ajusta esto a la URL de tu frontend
+    "http://localhost:3000",
 ]
 
 # permitir credenciales (cookies, headers de autorización)
@@ -135,6 +134,8 @@ SOCIALACCOUNT_PROVIDERS = {
         'VERIFIED_EMAIL': True
     }
 }
+
+YOUTUBE_API_KEY=os.environ.get('YOUTUBE_API_KEY')
 
 ROOT_URLCONF = 'django_app_auth.urls'
 

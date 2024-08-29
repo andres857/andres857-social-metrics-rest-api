@@ -539,3 +539,111 @@ def get_metrics_by_type_and_date(request):
     
 #     except Exception as e:
 #         return JsonResponse({"error": str(e)}, status=500)
+
+import os
+import requests
+from django.http import JsonResponse
+from django.conf import settings
+
+def get_channel_stats_youtube(request):
+    query = request.GET.get('query', '')
+    api_key = settings.YOUTUBE_API_KEY
+
+    if not api_key:
+        return JsonResponse({'error': 'API key no configurada'}, status=500)
+
+    base_url = 'https://www.googleapis.com/youtube/v3/channels'
+    
+    # Determinar si es un ID de canal o un nombre de usuario/handle
+    if query.startswith('UC'):
+        params = {
+            'part': 'snippet,contentDetails,statistics',
+            'id': query,
+            'key': api_key
+        }
+    else:
+        # Si comienza con @, quitamos el @ para la búsqueda
+        if query.startswith('@'):
+            query = query[1:]
+        params = {
+            'part': 'snippet,contentDetails,statistics',
+            'forUsername': query,
+            'key': api_key
+        }
+
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Esto levantará una excepción para códigos de estado no exitosos
+        data = response.json()
+
+        if not data.get('items'):
+            # Si no se encuentra el canal por username, intentamos buscar por handle
+            if 'forUsername' in params:
+                params = {
+                    'part': 'snippet,contentDetails,statistics',
+                    'forHandle': f'@{query}',
+                    'key': api_key
+                }
+                response = requests.get(base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+            if not data.get('items'):
+                return JsonResponse({'error': 'No se encontró el canal'}, status=404)
+
+        channel_info = data['items'][0]
+        statistics = channel_info['statistics']
+
+        return JsonResponse({
+            'channel_name': channel_info['snippet']['title'],
+            'description': channel_info['snippet']['description'],
+            'subscriber_count': statistics.get('subscriberCount', 'N/A'),
+            'view_count': statistics['viewCount'],
+            'video_count': statistics['videoCount'],
+            'playlist_id': channel_info['contentDetails']['relatedPlaylists']['uploads'],
+            'thumbnail_url': channel_info['snippet']['thumbnails']['default']['url']
+        })
+
+    except requests.RequestException as e:
+        return JsonResponse({'error': f'Error al conectar con la API de YouTube: {str(e)}'}, status=500)
+    except KeyError as e:
+        return JsonResponse({'error': f'Error al procesar la respuesta de la API: {str(e)}'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
+    
+    
+
+@csrf_exempt
+def bulk_channel_stats(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    if 'file' not in request.FILES:
+        return JsonResponse({'error': 'No se proporcionó ningún archivo'}, status=400)
+
+    file = request.FILES['file']
+    
+    try:
+        df = pd.read_excel(file)
+    except Exception as e:
+        return JsonResponse({'error': f'Error al leer el archivo Excel: {str(e)}'}, status=400)
+
+    if 'handle' not in df.columns:
+        return JsonResponse({'error': 'El archivo no contiene una columna "handle"'}, status=400)
+
+    results = []
+    for handle in df['handle']:
+        try:
+            # Simulamos una solicitud GET con el handle
+            fake_request = type('FakeRequest', (), {'GET': {'query': handle}})()
+            response = get_channel_stats_youtube(fake_request)
+            
+            # JsonResponse ya contiene los datos en formato JSON, no necesitamos llamar .json()
+            channel_data = response.content
+            # Decodificamos los bytes a un diccionario de Python
+            channel_data = json.loads(channel_data.decode('utf-8'))
+            results.append(channel_data)
+        except Exception as e:
+            results.append({'handle': handle, 'error': str(e)})
+
+    return JsonResponse({'channels': results})

@@ -35,13 +35,13 @@ class CustomUser(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
-    type_identification = models.CharField(
-        max_length=2,
-        choices=ID_CHOICES,
-        blank=True,
-        null=True,
-        verbose_name="Tipo de Identificación"
-    )
+    # type_identification = models.CharField(
+    #     max_length=2,
+    #     choices=ID_CHOICES,
+    #     blank=True,
+    #     null=True,
+    #     verbose_name="Tipo de Identificación"
+    # )
     identification = models.CharField(
         max_length=20,
         blank=True,
@@ -54,7 +54,7 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'type_identification', 'identification']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'identification']
 
     def __str__(self):
         return self.email
