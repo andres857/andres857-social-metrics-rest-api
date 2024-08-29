@@ -6,6 +6,7 @@ class TypeInstitution(models.Model):
 
     def __str__(self):
         return self.name
+
 class Institution(models.Model):
     name = models.CharField(max_length=255, unique=True)
     city = models.CharField(max_length=100)
@@ -24,8 +25,8 @@ class BaseMetrics(models.Model):
     socialnetwork = models.ForeignKey(SocialNetwork, on_delete=models.CASCADE)
 
     # collectiondate = models.ForeignKey(CollectionDate, on_delete=models.CASCADE)
-    followers = models.IntegerField()
-    publications = models.IntegerField()
-    reactions = models.IntegerField()
+    followers = models.BigIntegerField()
+    publications = models.BigIntegerField()
+    reactions = models.BigIntegerField()
     date_collection = models.DateField(blank=True, null=True)
     engagment_rate = models.FloatField(blank=True, null=True)

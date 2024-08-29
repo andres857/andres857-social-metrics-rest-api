@@ -33,7 +33,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'dj_rest_auth',
     'corsheaders',
-    #'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -58,17 +57,17 @@ MIDDLEWARE = [
 ]
 
 # Permite solicitudes desde tu frontend
-# CORS_ALLOWED_ORIGINS = [
-#     # URL del frontend
-#     "http://localhost:3000"
-# ]
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    # URL del frontend
+    "http://localhost:3000"
+]
+# CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://api-social-stats.windowschannel.us",
     "https://redes-sociales.windowschannel.us",  # Ajusta esto a la URL de tu frontend
     "http://localhost:3000",
 ]
-
 
 # permitir credenciales (cookies, headers de autorización)
 CORS_ALLOW_CREDENTIALS = True
