@@ -226,6 +226,23 @@ class ForgotPasswordView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+class CustomRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            if user:
+                return Response({
+                    "user": UserSerializer(user, context=self.get_serializer_context()).data,
+                    "message": "User Created Successfully. Now perform Login to get your token",
+                }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_serializer_context(self):
+        return {"request": self.request}
+
 @method_decorator(csrf_protect, name='dispatch')
 class CustomLogoutView(LogoutView):
     def post(self, *args, **kwargs):

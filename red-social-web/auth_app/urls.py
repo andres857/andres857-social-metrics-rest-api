@@ -1,11 +1,12 @@
 from django.urls import path
-from .views import LoginView, GetCSRFToken, ForgotPasswordView, CustomLogoutView, CustomPasswordResetFromKeyView, auth_status, user_detail, update_profile, change_password
+from .views import LoginView, CustomRegisterView, GetCSRFToken, ForgotPasswordView, CustomLogoutView, CustomPasswordResetFromKeyView, auth_status, user_detail, update_profile, change_password
 
 urlpatterns = [
     # path('user-profile/', views.UserProfileView.as_view(), name='user_profile'),
     path('get-csrf-token/', GetCSRFToken.as_view(), name='get_csrf_token'),
     path('logout/', CustomLogoutView.as_view(), name='custom_logout'),
     path('login/', LoginView.as_view(), name='login'),
+    path('register/', CustomRegisterView.as_view(), name='register'),
     path('forgot-password/', ForgotPasswordView.as_view(), name='api_forgot_password'),
     path('password/reset/key/<str:uidb36>-<str:key>/', CustomPasswordResetFromKeyView.as_view(),name='custom_password_reset_from_key'),
     
