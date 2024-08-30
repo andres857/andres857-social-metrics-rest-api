@@ -1,16 +1,19 @@
 import pandas as pd
 import json, os, requests
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, F
 from django.core.serializers import serialize
 from django.conf import settings
 from collections import defaultdict
 from datetime import date
-from .models import Institution, SocialNetwork, TypeInstitution, BaseMetrics
+from .models import Institution, SocialNetwork, TypeInstitution, InstitutionStatsByType
 from datetime import datetime
 from tabulate import tabulate
 
@@ -215,10 +218,6 @@ def create_metrics_from_excel(followers,publications,reactions,date_collection,i
         raise ValueError(f"Error inesperado al crear las métricas: {str(e)}, {socialnetwork_id}")
 
 def get_channel_stats_youtube(channel):
-    print("////////////////////////////////")
-    print(channel)
-    print("////////////////////////////////")
-
     api_key = settings.YOUTUBE_API_KEY
 
     if not api_key:
@@ -691,3 +690,180 @@ def bulk_channel_stats(request):
             results.append({'handle': handle, 'error': str(e)})
 
     return JsonResponse({'channels': results})
+
+
+def create_institution_stats(request):
+    try:
+        type_institution_id = request.data.get('type_institution_id')
+        social_network_id = request.data.get('social_network_id')
+        stats_date = request.data.get('stats_date')
+        total_followers = request.data.get('total_followers')
+        total_publications = request.data.get('total_publications')
+        total_reactions = request.data.get('total_reactions')
+        average_views = request.data.get('average_views')
+        institution_count = request.data.get('institution_count')
+
+        # Convertir la fecha de string a objeto date
+        stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+
+        # Obtener las instancias de TypeInstitution y SocialNetwork
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+        # Crear el nuevo registro
+        stats = InstitutionStatsByType.objects.create(
+            type_institution=type_institution,
+            social_network=social_network,
+            stats_date=stats_date,
+            total_followers=total_followers,
+            total_publications=total_publications,
+            total_reactions=total_reactions,
+            average_views=average_views,
+            institution_count=institution_count
+        )
+
+        return Response({
+            "message": "Estadísticas creadas con éxito",
+            "id": stats.id
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+def get_institution_stats(request):
+    try:
+        type_institution_id = request.query_params.get('type_institution_id')
+        social_network_id = request.query_params.get('social_network_id')
+        stats_date = request.query_params.get('stats_date')
+
+        # Validar que todos los parámetros necesarios estén presentes
+        if not all([type_institution_id, social_network_id, stats_date]):
+            return Response({
+                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id y stats_date."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener las instancias de TypeInstitution y SocialNetwork
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+        # Buscar las estadísticas
+        stats = get_object_or_404(InstitutionStatsByType, 
+                                  type_institution=type_institution,
+                                  social_network=social_network,
+                                  stats_date=stats_date)
+
+        # Preparar la respuesta
+        response_data = {
+            "id": stats.id,
+            "type_institution": stats.type_institution.name,
+            "social_network": stats.social_network.name,
+            "stats_date": stats.stats_date,
+            "total_followers": stats.total_followers,
+            "total_publications": stats.total_publications,
+            "total_reactions": stats.total_reactions,
+            "average_views": stats.average_views,
+            "institution_count": stats.institution_count,
+            "date_updated": stats.date_updated
+        }
+
+        return Response(response_data)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+def update_institution_stats(request):
+    try:
+        # Obtener los parámetros de la solicitud
+        type_institution_id = request.data.get('type_institution_id')
+        social_network_id = request.data.get('social_network_id')
+        stats_date = request.data.get('stats_date')
+        followers_increment = request.data.get('followers_increment')
+        print(type_institution_id, social_network_id, stats_date, followers_increment)
+
+        # Validar que todos los parámetros necesarios estén presentes
+        if not all([type_institution_id, social_network_id, stats_date, followers_increment]):
+            return Response({
+                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id, stats_date y followers_increment."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener las instancias de TypeInstitution y SocialNetwork
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+        # Buscar y actualizar las estadísticas
+        stats = InstitutionStatsByType.objects.filter(
+            type_institution=type_institution,
+            social_network=social_network,
+            stats_date=stats_date
+        )
+
+        if not stats.exists():
+            return Response({
+                "error": "No se encontraron estadísticas para los parámetros proporcionados."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Actualizar incrementalmente el campo total_followers
+        stats.update(total_followers=F('total_followers') + followers_increment)
+
+        # Obtener el objeto actualizado
+        updated_stats = stats.first()
+
+        # Preparar la respuesta
+        response_data = {
+            "id": updated_stats.id,
+            "type_institution": updated_stats.type_institution.name,
+            "social_network": updated_stats.social_network.name,
+            "stats_date": updated_stats.stats_date,
+            "total_followers": updated_stats.total_followers,
+            "total_publications": updated_stats.total_publications,
+            "total_reactions": updated_stats.total_reactions,
+            "average_views": updated_stats.average_views,
+            "institution_count": updated_stats.institution_count,
+            "date_updated": updated_stats.date_updated
+        }
+
+        return Response(response_data)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET','POST','PUT'])
+def manage_stats(request):
+    if request.method == 'GET':
+        return get_institution_stats(request)
+    elif request.method == 'PUT':
+        print("hello")
+        return update_institution_stats(request)
+
+    # elif request.method == 'POST':
+    #     # Crear una nueva estadística
+    #     serializer = InstitutionStatsByTypeSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+    

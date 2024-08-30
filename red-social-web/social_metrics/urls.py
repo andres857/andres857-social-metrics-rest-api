@@ -8,6 +8,7 @@ urlpatterns = [
     path('institutions', views.create_institution, name='institutions'),
     path('social-network', views.create_social_network, name='social-network'),
     path('upload', views.procesar_datos_excel, name='upload'),
+    path('stats', views.manage_stats, name='stats'),
     path('youtube/statistics/', views.get_channel_stats_youtube_api_function, name='data_youtube'),
     path('youtube/bulk-statistics/', views.bulk_channel_stats, name='youtube_bulk_stats'),
 ]
