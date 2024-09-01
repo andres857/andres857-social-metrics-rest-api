@@ -7,7 +7,7 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q, F
 from django.core.serializers import serialize
 from django.conf import settings
@@ -17,6 +17,7 @@ from .models import Institution, SocialNetwork, TypeInstitution, InstitutionStat
 from datetime import datetime
 from tabulate import tabulate
 from .serializers import InstitutionSerializer, TypeInstitutionSerializer
+from .exceptions import InstitutionCreationError, TypeInstitutionError
 
 # return render(request, 'uploadfile.html', {"excel_data":excel_data})
 pd.set_option('display.max_columns', 5)  # Muestra hasta 20 columnas
@@ -194,38 +195,38 @@ def convertir_nombre_pestana_a_fecha(nombre_pestana):
 
 def create_or_get_institution_from_excel( name , city, type_institution):
     url = 'http://test.image'
-    with transaction.atomic():
-        # crear el tipo de institution
-        try:
-            tipo_institucion = TypeInstitution.objects.get(name=type_institution)
-        except TypeInstitution.DoesNotExist:
-            # Si no existe, crear uno nuevo
-            tipo_institucion = TypeInstitution.objects.create(name=type_institution, url=url)
-        
-        institution, inst_created = Institution.objects.get_or_create(
-                name=name,
-                defaults={
-                    'city': city,
-                    'type_institution': tipo_institucion
-                }
-            )
+    try:
+        with transaction.atomic():
+            # crear el tipo de institution
+            try:
+                tipo_institucion = TypeInstitution.objects.get(name=type_institution)
+            except TypeInstitution.DoesNotExist:
+                # Si no existe, crear uno nuevo
+                try:
+                    tipo_institucion = TypeInstitution.objects.create(name=type_institution, url=url)
+                except IntegrityError as e:
+                    raise ValueError(f"Failed to create TypeInstitution: {type_institution}")
             
-        # Si se creó una nueva institución, incrementar el contador
-        if inst_created:
-            TypeInstitution.objects.filter(id=tipo_institucion.id).update(institution_count=F('institution_count') + 1)
-            tipo_institucion.refresh_from_db()
+            try:
+                institution, inst_created = Institution.objects.get_or_create(
+                        name=name,
+                        defaults={
+                            'city': city,
+                            'type_institution': tipo_institucion
+                        }
+                    )
+            except IntegrityError as e:
+                raise ValueError(f"Failed to create Institution: {name}")
+            
+            # Si se creó una nueva institución, incrementar el contador
+            if inst_created:
+                TypeInstitution.objects.filter(id=tipo_institucion.id).update(institution_count=F('institution_count') + 1)
+                tipo_institucion.refresh_from_db()
 
-        # # crear la institution
-        # try:
-        #     institution = Institution.objects.get(name=name)
-        # except Institution.DoesNotExist:
-        #     institution = Institution.objects.create(
-        #         name=name,
-        #         city=city,
-        #         type_institution=tipo_institucion
-        #     )
-        return institution.id, tipo_institucion.id
-
+            return institution.id, tipo_institucion.id
+        
+    except Exception as e:
+        raise ValueError(f"Unexpected error creating the institution or typeInstitution: {str(e)}")
 
 def create_metrics_from_excel(followers, publications, reactions, date_collection,institution_id, id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
@@ -319,7 +320,7 @@ def get_channel_stats_youtube(channel):
         # Capturar cualquier otra excepción no prevista
         raise ValueError(f"Error inesperado al crear las métricas YOUTUBE: {str(e)}", channel)
     
-def add_followers_institution_stats(type_institution_id,social_network_id,stats_date,followers_increment):
+def add_followers_institution_stats(type_institution_id, social_network_id, stats_date,followers_increment):
     try:
         print("here",type_institution_id,social_network_id,stats_date,followers_increment)
 
@@ -328,33 +329,26 @@ def add_followers_institution_stats(type_institution_id,social_network_id,stats_
         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
 
         print(type_institution,social_network)
-        
-        date_collection = stats_date.date()
-        stats_date_collection = datetime.strptime(date_collection, "%Y-%m-%d").date()
-
-        print("date coolection",stats_date_collection)
+                
         # Buscar y actualizar las estadísticas
-        stats = InstitutionStatsByType.objects.filter(
+        stats, created = InstitutionStatsByType.objects.get_or_create(
             type_institution=type_institution,
             social_network=social_network,
-            stats_date=stats_date_collection
+            stats_date=stats_date,
+            defaults={
+                'total_followers': followers_increment,
+            }
         )
 
-        print("stats",stats)
-        if not stats.exists():
-            print("No stats")
-        print("followers increment", followers_increment)
-        # Actualizar incrementalmente el campo total_followers
-        stats.update(total_followers=F('total_followers') + followers_increment)
+        if not created:
+            stats.total_followers = F('total_followers') + followers_increment
+            stats.save()
 
-        # Obtener el objeto actualizado
-        updated_stats = stats.first()
-        print(updated_stats)
+        stats.refresh_from_db()  # Esto es necesario si usaste F() para actualizar
+        print(f"Total de seguidores actual: {stats.total_followers}")
 
     except Exception as e:
-        return Response({
-            "error": str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+        raise ValueError(f"Error inesperado al crear las stats: {str(e)}")
 
 """"
 END funciones para crear los registros desde el archivo excel
@@ -859,7 +853,7 @@ def create_institution_stats_api_t(request):
         stats_date = request.data.get('stats_date')
         total_followers = request.data.get('total_followers', 0)
         stats_date = convertir_nombre_pestana_a_fecha(stats_date)
-
+        print(stats_date)
         # Obtener las instancias de TypeInstitution y SocialNetwork
         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
