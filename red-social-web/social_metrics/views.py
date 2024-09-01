@@ -8,7 +8,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
-from django.db.models import Q, F
+from django.db.models import Q, F, Prefetch
 from django.core.serializers import serialize
 from django.conf import settings
 from collections import defaultdict
@@ -116,8 +116,7 @@ def create_institution(request):
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
 
-@api_view(['GET'])
-def list_type_institutions(request):
+def list_categories(request):
     try:
         # Obtener todas las instituciones
         type_institutions = TypeInstitution.objects.all()
@@ -136,7 +135,7 @@ def list_type_institutions(request):
 @api_view(['GET','POST'])
 def manage_institutions(request):
     if request.method == 'GET':
-        return list_type_institutions(request)
+        return list_categories(request)
     elif request.method == 'POST':
         return create_institution(request)
 
@@ -252,7 +251,7 @@ def create_metrics_from_excel(followers, publications, reactions, date_collectio
                 socialnetwork_id= socialnetwork_id
             )
             metrics.save()
-        add_followers_institution_stats(id_type_institution,socialnetwork_id,date_collection,followers)
+        add_followers_institution_stats(id_type_institution, socialnetwork_id, date_collection, followers)
 
     except Exception as e:
         # Capturar cualquier otra excepción no prevista
@@ -369,9 +368,10 @@ def procesar_datos_excel(request):
             
             # Leer datos de la pestaña
             df = pd.read_excel(xls, sheet_name=nombre_pestana, skiprows=1)
-            print("\nDatos de la pestaña:")
-            print(tabulate(df, headers='keys', tablefmt='psql'))
-
+            # print("\nDatos de la pestaña:")
+            # print(tabulate(df, headers='keys', tablefmt='psql'))
+            last_period = datetime.strptime("2024-06", '%Y-%m')
+            print(last_period, "/*/*/*/*/*/*/*")
             for index, row in df.iterrows():
 
                 name_institution = row.iloc[0]
@@ -403,16 +403,15 @@ def procesar_datos_excel(request):
                 
                 # for instagram
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 4)
-
-                followers_yt = row.iloc[13]    
-                publications_yt = row.iloc[14]    
-                interactions_yt = row.iloc[15]
-
-                # for youtube
-                stats_youtube = get_channel_stats_youtube(channel_youtube)
-                # print("--------------------------------")
-                # print(stats_youtube)
-                create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
+                
+                if (fecha_recoleccion == last_period):
+                    stats_youtube = get_channel_stats_youtube(channel_youtube)
+                    create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
+                else:
+                    followers_yt = row.iloc[13]
+                    publications_yt = row.iloc[14]    
+                    interactions_yt = row.iloc[15]
+                    create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id,id_type_institution, 5)
 
                 followers_tiktok = row.iloc[16]    
                 publications_tiktok = row.iloc[17]    
@@ -421,27 +420,26 @@ def procesar_datos_excel(request):
                 # for tiktok
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 7)
 
-                # print(f"Índice: {index}")
-                # print(f"Institución: {name_institution}")
-                # print(f"Ciudad: {city}")
-                # print(f"Tipo: {type_institution}")
-                # print(f"Followers Facebook: {followers_facebook}")
-                # print(f"Publications Facebook: {publications_facebook}")
-                # print(f"Interactions Facebook: {interactions_facebook}")
-                # print(f"Followers X: {followers_X}")
-                # print(f"Publications X: {publications_X}")
-                # print(f"Interactions X: {interactions_X}")
-                # print(f"Followers Instagram: {followers_instagram}")
-                # print(f"Publications Instagram: {publications_instagram}")
-                # print(f"Interactions Instagram: {interactions_instagram}")
-                # print(f"Followers YouTube: {followers_yt}")
-                # print(f"Publications YouTube: {publications_yt}")
-                # print(f"Interactions YouTube: {interactions_yt}")
-                # print(f"Followers TikTok: {followers_tiktok}")
-                # print(f"Publications TikTok: {publications_tiktok}")
-                # print(f"Interactions TikTok: {interactions_tiktok}")
-                # print("--------")
-                # print("--------")
+                print(f"Índice: {index}")
+                print(f"Institución: {name_institution}")
+                print(f"Ciudad: {city}")
+                print(f"Tipo: {type_institution}")
+                print(f"Followers Facebook: {followers_facebook}")
+                print(f"Publications Facebook: {publications_facebook}")
+                print(f"Interactions Facebook: {interactions_facebook}")
+                print(f"Followers X: {followers_X}")
+                print(f"Publications X: {publications_X}")
+                print(f"Interactions X: {interactions_X}")
+                print(f"Followers Instagram: {followers_instagram}")
+                print(f"Publications Instagram: {publications_instagram}")
+                print(f"Interactions Instagram: {interactions_instagram}")
+                print(f"Followers YouTube: {followers_yt}")
+                print(f"Publications YouTube: {publications_yt}")
+                print(f"Interactions YouTube: {interactions_yt}")
+                print(f"Followers TikTok: {followers_tiktok}")
+                print(f"Publications TikTok: {publications_tiktok}")
+                print(f"Interactions TikTok: {interactions_tiktok}")
+                print("--------")
 
 def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
@@ -794,7 +792,7 @@ def create_institution_stats_api(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
     
-def get_institution_stats(request):
+def get_stats_by_category_id(request):
     try:
         type_institution_id = request.query_params.get('type_institution_id')
         social_network_id = request.query_params.get('social_network_id')
@@ -820,9 +818,10 @@ def get_institution_stats(request):
 
         # Buscar las estadísticas
         stats = get_object_or_404(InstitutionStatsByType, 
-                                  type_institution=type_institution,
-                                  social_network=social_network,
-                                  stats_date=stats_date)
+            type_institution=type_institution,
+            social_network=social_network,
+            stats_date=stats_date
+        )
 
         # Preparar la respuesta
         response_data = {
@@ -834,7 +833,6 @@ def get_institution_stats(request):
             "total_publications": stats.total_publications,
             "total_reactions": stats.total_reactions,
             "average_views": stats.average_views,
-            "institution_count": stats.institution_count,
             "date_updated": stats.date_updated
         }
 
@@ -845,6 +843,74 @@ def get_institution_stats(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
+def get_stats_all_categories_by_year(request):
+    try:
+        social_network_id = request.query_params.get('social_network_id')
+        stats_date = request.query_params.get('stats_date')
+
+        # Validar que todos los parámetros necesarios estén presentes
+        if not all([social_network_id, stats_date]):
+            return Response({
+                "error": "Faltan parámetros requeridos. Se necesitan social_network_id y stats_date."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener la instancia de SocialNetwork
+        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+        # Obtener todas las categorías (TypeInstitution) con sus estadísticas
+        categories = TypeInstitution.objects.prefetch_related(
+            Prefetch(
+                'institutionstatsbtype_set',
+                queryset=InstitutionStatsByType.objects.filter(
+                    social_network=social_network,
+                    stats_date=stats_date
+                ),
+                to_attr='filtered_stats'
+            )
+        )
+
+        # Preparar la respuesta
+        response_data = []
+        for category in categories:
+            stats = category.filtered_stats[0] if category.filtered_stats else None
+            category_data = {
+                "id": category.id,
+                "name": category.name,
+                "url": category.url,
+                "ordering": category.ordering,
+                "institution_count": category.institution_count,
+                "stats": None
+            }
+            if stats:
+                category_data["stats"] = {
+                    "id": stats.id,
+                    "total_followers": stats.total_followers,
+                    "total_publications": stats.total_publications,
+                    "total_reactions": stats.total_reactions,
+                    "average_views": stats.average_views,
+                    "date_updated": stats.date_updated
+                }
+            response_data.append(category_data)
+
+        return Response({
+            "social_network": social_network.name,
+            "stats_date": stats_date,
+            "categories": response_data
+        })
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 # @transaction.atomic
 def create_institution_stats_api_t(request):
     try:
@@ -881,10 +947,122 @@ def create_institution_stats_api_t(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
+def get_stats_category_all_networks(request):
+    try:
+        type_institution_id = request.query_params.get('type_institution_id')
+        stats_date = request.query_params.get('stats_date')
+
+        # Validar que todos los parámetros necesarios estén presentes
+        if not all([type_institution_id, stats_date]):
+            return Response({
+                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id y stats_date."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener la instancia de TypeInstitution
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+
+        # Obtener todas las estadísticas para este tipo de institución en la fecha dada
+        stats = InstitutionStatsByType.objects.filter(
+            type_institution=type_institution,
+            stats_date=stats_date
+        ).select_related('social_network')
+
+        # Preparar la respuesta
+        response_data = []
+        for stat in stats:
+            stat_data = {
+                "id": stat.id,
+                "type_institution": type_institution.name,
+                "social_network": stat.social_network.name,
+                "stats_date": stat.stats_date,
+                "total_followers": stat.total_followers,
+                "total_publications": stat.total_publications,
+                "total_reactions": stat.total_reactions,
+                "average_views": stat.average_views,
+                "date_updated": stat.date_updated
+            }
+            response_data.append(stat_data)
+
+        return Response(response_data)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def get_stats_all_categories_networks_by_date(request):
+    try:
+        stats_date = request.query_params.get('stats_date')
+
+        # Validar que la fecha esté presente
+        if not stats_date:
+            return Response({
+                "error": "Falta el parámetro requerido stats_date."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener todas las categorías y redes sociales
+        categories = TypeInstitution.objects.all()
+        social_networks = SocialNetwork.objects.all()
+
+        # Obtener todas las estadísticas para la fecha dada
+        stats = InstitutionStatsByType.objects.filter(
+            stats_date=stats_date
+        ).select_related('type_institution', 'social_network')
+
+        # Crear un diccionario para almacenar las estadísticas
+        stats_dict = {
+            (stat.type_institution_id, stat.social_network_id): stat 
+            for stat in stats
+        }
+
+        # Preparar la respuesta
+        response_data = []
+        for category in categories:
+            for network in social_networks:
+                stat = stats_dict.get((category.id, network.id))
+                stat_data = {
+                    "type_institution": category.name,
+                    "social_network": network.name,
+                    "stats_date": stats_date,
+                    "total_followers": stat.total_followers if stat else 0,
+                    "total_publications": stat.total_publications if stat else 0,
+                    "total_reactions": stat.total_reactions if stat else 0,
+                    "average_views": stat.average_views if stat else 0.0,
+                    "date_updated": stat.date_updated if stat else None
+                }
+                response_data.append(stat_data)
+
+        return Response({
+            "stats_date": stats_date,
+            "stats": response_data
+        })
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 @api_view(['GET','POST','PUT'])
 def manage_stats(request):
     if request.method == 'GET':
-        return get_institution_stats(request)
+        # return get_stats_category_all_networks(request)
+        return get_stats_all_categories_networks_by_date(request)
     elif request.method == 'POST':
         return create_institution_stats_api_t(request)
 

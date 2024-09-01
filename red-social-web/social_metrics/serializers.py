@@ -4,7 +4,7 @@ from .models import InstitutionStatsByType, Institution, TypeInstitution, Social
 class TypeInstitutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = TypeInstitution
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'institution_count']
 
 class SocialNetworkSerializer(serializers.ModelSerializer):
     class Meta:
