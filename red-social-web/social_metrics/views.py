@@ -13,16 +13,13 @@ from django.core.serializers import serialize
 from django.conf import settings
 from collections import defaultdict
 from datetime import date
-from .models import Institution, SocialNetwork, TypeInstitution, InstitutionStatsByType
+from .models import Institution, SocialNetwork, TypeInstitution, InstitutionStatsByType, BaseMetrics
 from datetime import datetime
 from tabulate import tabulate
+from .serializers import InstitutionSerializer, TypeInstitutionSerializer
 
 # return render(request, 'uploadfile.html', {"excel_data":excel_data})
 pd.set_option('display.max_columns', 5)  # Muestra hasta 20 columnas
-
-
-def get_all_institutions(request):
-    return HttpResponse("Hello, world. Institutions")
 
 def uploadFile(request):
     return render(request, 'uploadfile.html')
@@ -63,54 +60,84 @@ def create_social_network(request):
     
 @csrf_exempt
 def create_institution(request):
-    if request.method == 'POST':
-        try:
-            # Parsear el JSON del cuerpo de la solicitud
-            data = json.loads(request.body)
-            
-            # Extraer los datos
-            nombre = data.get('nombre')
-            ciudad = data.get('ciudad')
-            tipo = data.get('tipo')
-            url = data.get('url')
-            
-            with transaction.atomic():
-                try:
-                    tipo_institucion = TypeInstitution.objects.get(name=tipo)
-                except TypeInstitution.DoesNotExist:
-                    print("11222")
-                    # Si no existe, crear uno nuevo
-                    tipo_institucion = TypeInstitution.objects.create(name=tipo, url=url)
-
-                institution = Institution(
-                    name=nombre,
-                    city=ciudad,
-                    type_institution=tipo_institucion
+    try:
+        # Parsear el JSON del cuerpo de la solicitud
+        data = json.loads(request.body)
+        
+        # Extraer los datos
+        nombre = data.get('nombre')
+        ciudad = data.get('ciudad')
+        tipo = data.get('tipo')
+        url = data.get('url')
+        
+        with transaction.atomic():
+            # Primero crea el tipo de institucion 
+            try:
+                tipo_institucion = TypeInstitution.objects.get(name=tipo)
+            except TypeInstitution.DoesNotExist:
+                # Si no existe, crear uno nuevo
+                tipo_institucion = TypeInstitution.objects.create(
+                    name=tipo, 
+                    url=url,
                 )
-                institution.save()
 
-                response_data = {
-                    'status': 'success',
-                    'message': 'Institución creada correctamente',
-                    'data': {
-                        'id': institution.id,
-                        'nombre': institution.name,
-                        'ciudad': institution.city,
-                        'tipo': {
-                            'id': tipo_institucion.id,
-                            'nombre': tipo_institucion.name,
-                            'url': tipo_institucion.url
-                        }
-                    }
+            institution, inst_created = Institution.objects.get_or_create(
+                name=nombre,
+                defaults={
+                    'city': ciudad,
+                    'type_institution': tipo_institucion
                 }
+            )
+            
+            # Si se creó una nueva institución, incrementar el contador
+            if inst_created:
+                TypeInstitution.objects.filter(id=tipo_institucion.id).update(institution_count=F('institution_count') + 1)
+                tipo_institucion.refresh_from_db()
 
-            return JsonResponse(response_data, status=201)
-        
-        except json.JSONDecodeError:
-            return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
-        
-    else:
-        return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+            response_data = {
+                'status': 'success',
+                'message': 'Institución creada correctamente' if inst_created else 'Institución ya existente',
+                'data': {
+                    'id': institution.id,
+                    'nombre': institution.name,
+                    'ciudad': institution.city,
+                    'tipo': {
+                        'id': tipo_institucion.id,
+                        'nombre': tipo_institucion.name,
+                        'url': tipo_institucion.url,
+                        'institution_count': tipo_institucion.institution_count
+                    },
+                    'created': inst_created
+                }
+            }
+        return JsonResponse(response_data, status=201 if inst_created else 200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
+
+@api_view(['GET'])
+def list_type_institutions(request):
+    try:
+        # Obtener todas las instituciones
+        type_institutions = TypeInstitution.objects.all()
+
+        # Serializar los datos
+        serializer = TypeInstitutionSerializer(type_institutions, many=True)
+
+        # Devolver la respuesta
+        return Response(serializer.data)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET','POST'])
+def manage_institutions(request):
+    if request.method == 'GET':
+        return list_type_institutions(request)
+    elif request.method == 'POST':
+        return create_institution(request)
 
 @csrf_exempt
 def create_metrics(request):
@@ -166,30 +193,41 @@ def convertir_nombre_pestana_a_fecha(nombre_pestana):
     return datetime.strptime(nombre_pestana, '%Y-%m')
 
 def create_or_get_institution_from_excel( name , city, type_institution):
-    url = 'http://test.image'        
+    url = 'http://test.image'
     with transaction.atomic():
         # crear el tipo de institution
         try:
             tipo_institucion = TypeInstitution.objects.get(name=type_institution)
         except TypeInstitution.DoesNotExist:
-            print("11222")
             # Si no existe, crear uno nuevo
             tipo_institucion = TypeInstitution.objects.create(name=type_institution, url=url)
         
-        # crear la institution
-        try:
-            institution = Institution.objects.get(name=name)
-        except Institution.DoesNotExist:
-            institution = Institution.objects.create(
+        institution, inst_created = Institution.objects.get_or_create(
                 name=name,
-                city=city,
-                type_institution=tipo_institucion
+                defaults={
+                    'city': city,
+                    'type_institution': tipo_institucion
+                }
             )
-            # institution.save()
-            # print(institution)
-        return institution.id 
+            
+        # Si se creó una nueva institución, incrementar el contador
+        if inst_created:
+            TypeInstitution.objects.filter(id=tipo_institucion.id).update(institution_count=F('institution_count') + 1)
+            tipo_institucion.refresh_from_db()
 
-def create_metrics_from_excel(followers,publications,reactions,date_collection,institution_id, socialnetwork_id):
+        # # crear la institution
+        # try:
+        #     institution = Institution.objects.get(name=name)
+        # except Institution.DoesNotExist:
+        #     institution = Institution.objects.create(
+        #         name=name,
+        #         city=city,
+        #         type_institution=tipo_institucion
+        #     )
+        return institution.id, tipo_institucion.id
+
+
+def create_metrics_from_excel(followers, publications, reactions, date_collection,institution_id, id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
     followers = 0 if pd.isna(followers) else max(0, float(followers))
     publications = 0 if pd.isna(publications) else max(0, float(publications))
@@ -213,6 +251,8 @@ def create_metrics_from_excel(followers,publications,reactions,date_collection,i
                 socialnetwork_id= socialnetwork_id
             )
             metrics.save()
+        add_followers_institution_stats(id_type_institution,socialnetwork_id,date_collection,followers)
+
     except Exception as e:
         # Capturar cualquier otra excepción no prevista
         raise ValueError(f"Error inesperado al crear las métricas: {str(e)}, {socialnetwork_id}")
@@ -270,13 +310,6 @@ def get_channel_stats_youtube(channel):
 
         channel_info = data['items'][0]
         statistics = channel_info['statistics']
-        print("FUNCTION STATS YOUTUBE")
-
-        # return JsonResponse({
-        #     'subscriber_count': statistics.get('subscriberCount', 'N/A'),
-        #     'view_count': statistics['viewCount'],
-        #     'video_count': statistics['videoCount'],
-        # })
         return {
             'subscriber_count': statistics.get('subscriberCount', 'N/A'),
             'views': statistics['viewCount'],
@@ -285,6 +318,43 @@ def get_channel_stats_youtube(channel):
     except Exception as e:
         # Capturar cualquier otra excepción no prevista
         raise ValueError(f"Error inesperado al crear las métricas YOUTUBE: {str(e)}", channel)
+    
+def add_followers_institution_stats(type_institution_id,social_network_id,stats_date,followers_increment):
+    try:
+        print("here",type_institution_id,social_network_id,stats_date,followers_increment)
+
+        # Obtener las instancias de TypeInstitution y SocialNetwork
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+        print(type_institution,social_network)
+        
+        date_collection = stats_date.date()
+        stats_date_collection = datetime.strptime(date_collection, "%Y-%m-%d").date()
+
+        print("date coolection",stats_date_collection)
+        # Buscar y actualizar las estadísticas
+        stats = InstitutionStatsByType.objects.filter(
+            type_institution=type_institution,
+            social_network=social_network,
+            stats_date=stats_date_collection
+        )
+
+        print("stats",stats)
+        if not stats.exists():
+            print("No stats")
+        print("followers increment", followers_increment)
+        # Actualizar incrementalmente el campo total_followers
+        stats.update(total_followers=F('total_followers') + followers_increment)
+
+        # Obtener el objeto actualizado
+        updated_stats = stats.first()
+        print(updated_stats)
+
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 """"
 END funciones para crear los registros desde el archivo excel
@@ -315,30 +385,30 @@ def procesar_datos_excel(request):
                 city = row.iloc[2]
                 type_institution = row.iloc[3]
                 
-                institution_id = create_or_get_institution_from_excel(name_institution, city, type_institution);
+                institution_id, id_type_institution  = create_or_get_institution_from_excel(name_institution, city, type_institution);
                 print("instituion id: ",institution_id)
+                print("---------****************-----")
+                print("type_institution id: ",id_type_institution)
                 followers_facebook = row.iloc[4]
-                publications_facebook = row.iloc[5]    
+                publications_facebook = row.iloc[5]
                 interactions_facebook = row.iloc[6]    
-                print(followers_facebook,publications_facebook,interactions_facebook,interactions_facebook)
                 
                 # for faceboook
-                create_metrics_from_excel(followers_facebook, publications_facebook, interactions_facebook, fecha_recoleccion, institution_id, 1)
+                create_metrics_from_excel(followers_facebook, publications_facebook, interactions_facebook, fecha_recoleccion, institution_id, id_type_institution, 1)
 
                 followers_X = row.iloc[7]    
                 publications_X = row.iloc[8]    
                 interactions_X = row.iloc[9] 
-                print(f"Followers Facebook: {followers_facebook}")
                 
                 # for twitter
-                create_metrics_from_excel(followers_X, publications_X, interactions_facebook, fecha_recoleccion, institution_id, 3)
+                create_metrics_from_excel(followers_X, publications_X, interactions_facebook, fecha_recoleccion, institution_id,id_type_institution, 3)
 
                 followers_instagram = row.iloc[10]    
                 publications_instagram = row.iloc[11]    
                 interactions_instagram = row.iloc[12]    
                 
                 # for instagram
-                create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id, 4)
+                create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 4)
 
                 followers_yt = row.iloc[13]    
                 publications_yt = row.iloc[14]    
@@ -346,38 +416,38 @@ def procesar_datos_excel(request):
 
                 # for youtube
                 stats_youtube = get_channel_stats_youtube(channel_youtube)
-                print("--------------------------------")
-                print(stats_youtube)
-                create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id, 5)
+                # print("--------------------------------")
+                # print(stats_youtube)
+                create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
 
                 followers_tiktok = row.iloc[16]    
                 publications_tiktok = row.iloc[17]    
                 interactions_tiktok = row.iloc[18]  
 
                 # for tiktok
-                create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id, 7)
+                create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 7)
 
-                print(f"Índice: {index}")
-                print(f"Institución: {name_institution}")
-                print(f"Ciudad: {city}")
-                print(f"Tipo: {type_institution}")
-                print(f"Followers Facebook: {followers_facebook}")
-                print(f"Publications Facebook: {publications_facebook}")
-                print(f"Interactions Facebook: {interactions_facebook}")
-                print(f"Followers X: {followers_X}")
-                print(f"Publications X: {publications_X}")
-                print(f"Interactions X: {interactions_X}")
-                print(f"Followers Instagram: {followers_instagram}")
-                print(f"Publications Instagram: {publications_instagram}")
-                print(f"Interactions Instagram: {interactions_instagram}")
-                print(f"Followers YouTube: {followers_yt}")
-                print(f"Publications YouTube: {publications_yt}")
-                print(f"Interactions YouTube: {interactions_yt}")
-                print(f"Followers TikTok: {followers_tiktok}")
-                print(f"Publications TikTok: {publications_tiktok}")
-                print(f"Interactions TikTok: {interactions_tiktok}")
-                print("--------")
-                print("--------")
+                # print(f"Índice: {index}")
+                # print(f"Institución: {name_institution}")
+                # print(f"Ciudad: {city}")
+                # print(f"Tipo: {type_institution}")
+                # print(f"Followers Facebook: {followers_facebook}")
+                # print(f"Publications Facebook: {publications_facebook}")
+                # print(f"Interactions Facebook: {interactions_facebook}")
+                # print(f"Followers X: {followers_X}")
+                # print(f"Publications X: {publications_X}")
+                # print(f"Interactions X: {interactions_X}")
+                # print(f"Followers Instagram: {followers_instagram}")
+                # print(f"Publications Instagram: {publications_instagram}")
+                # print(f"Interactions Instagram: {interactions_instagram}")
+                # print(f"Followers YouTube: {followers_yt}")
+                # print(f"Publications YouTube: {publications_yt}")
+                # print(f"Interactions YouTube: {interactions_yt}")
+                # print(f"Followers TikTok: {followers_tiktok}")
+                # print(f"Publications TikTok: {publications_tiktok}")
+                # print(f"Interactions TikTok: {interactions_tiktok}")
+                # print("--------")
+                # print("--------")
 
 def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
@@ -691,8 +761,7 @@ def bulk_channel_stats(request):
 
     return JsonResponse({'channels': results})
 
-
-def create_institution_stats(request):
+def create_institution_stats_api(request):
     try:
         type_institution_id = request.data.get('type_institution_id')
         social_network_id = request.data.get('social_network_id')
@@ -702,9 +771,8 @@ def create_institution_stats(request):
         total_reactions = request.data.get('total_reactions')
         average_views = request.data.get('average_views')
         institution_count = request.data.get('institution_count')
-
+        stats_date = convertir_nombre_pestana_a_fecha(stats_date)
         # Convertir la fecha de string a objeto date
-        stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
 
         # Obtener las instancias de TypeInstitution y SocialNetwork
         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
@@ -783,87 +851,48 @@ def get_institution_stats(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
-def update_institution_stats(request):
+# @transaction.atomic
+def create_institution_stats_api_t(request):
     try:
-        # Obtener los parámetros de la solicitud
         type_institution_id = request.data.get('type_institution_id')
         social_network_id = request.data.get('social_network_id')
         stats_date = request.data.get('stats_date')
-        followers_increment = request.data.get('followers_increment')
-        print(type_institution_id, social_network_id, stats_date, followers_increment)
-
-        # Validar que todos los parámetros necesarios estén presentes
-        if not all([type_institution_id, social_network_id, stats_date, followers_increment]):
-            return Response({
-                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id, stats_date y followers_increment."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convertir la fecha de string a objeto date
-        try:
-            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({
-                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
-            }, status=status.HTTP_400_BAD_REQUEST)
+        total_followers = request.data.get('total_followers', 0)
+        stats_date = convertir_nombre_pestana_a_fecha(stats_date)
 
         # Obtener las instancias de TypeInstitution y SocialNetwork
         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
 
-        # Buscar y actualizar las estadísticas
-        stats = InstitutionStatsByType.objects.filter(
+        # Intentar obtener un registro existente o crear uno nuevo
+        stats, created = InstitutionStatsByType.objects.get_or_create(
             type_institution=type_institution,
             social_network=social_network,
-            stats_date=stats_date
+            stats_date=stats_date,
+            defaults={
+                'total_followers': total_followers,
+            }
         )
 
-        if not stats.exists():
-            return Response({
-                "error": "No se encontraron estadísticas para los parámetros proporcionados."
-            }, status=status.HTTP_404_NOT_FOUND)
+        if not created:
+            stats.total_followers = F('total_followers') + total_followers
+            stats.save()
 
-        # Actualizar incrementalmente el campo total_followers
-        stats.update(total_followers=F('total_followers') + followers_increment)
-
-        # Obtener el objeto actualizado
-        updated_stats = stats.first()
-
-        # Preparar la respuesta
-        response_data = {
-            "id": updated_stats.id,
-            "type_institution": updated_stats.type_institution.name,
-            "social_network": updated_stats.social_network.name,
-            "stats_date": updated_stats.stats_date,
-            "total_followers": updated_stats.total_followers,
-            "total_publications": updated_stats.total_publications,
-            "total_reactions": updated_stats.total_reactions,
-            "average_views": updated_stats.average_views,
-            "institution_count": updated_stats.institution_count,
-            "date_updated": updated_stats.date_updated
-        }
-
-        return Response(response_data)
+        return Response({
+            "message": "Estadísticas creadas o actualizadas con éxito",
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     except Exception as e:
         return Response({
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-    
+
 @api_view(['GET','POST','PUT'])
 def manage_stats(request):
     if request.method == 'GET':
         return get_institution_stats(request)
-    elif request.method == 'PUT':
-        print("hello")
-        return update_institution_stats(request)
+    elif request.method == 'POST':
+        return create_institution_stats_api_t(request)
 
-    # elif request.method == 'POST':
-    #     # Crear una nueva estadística
-    #     serializer = InstitutionStatsByTypeSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         serializer.save()
-    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
     

@@ -5,7 +5,8 @@ app_name = 'social_metrics'  # Esto define el espacio de nombres
 
 urlpatterns = [
     path('', views.manage_social_metrics, name='metrics'),
-    path('institutions', views.create_institution, name='institutions'),
+    path('institutions', views.manage_institutions, name='institutions'),
+    path('institutions/types', views.list_type_institutions, name='type-institutions'),
     path('social-network', views.create_social_network, name='social-network'),
     path('upload', views.procesar_datos_excel, name='upload'),
     path('stats', views.manage_stats, name='stats'),

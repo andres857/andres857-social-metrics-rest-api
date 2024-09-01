@@ -3,6 +3,8 @@ from django.db import models
 class TypeInstitution(models.Model):
     name = models.CharField(max_length=255, unique=True)
     url = models.URLField(max_length=255, blank=True, null=True)
+    ordering = models.IntegerField(null=True, blank=True)
+    institution_count = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return self.name
@@ -12,14 +14,14 @@ class SocialNetwork(models.Model):
         return self.name
     
 class InstitutionStatsByType(models.Model):
+
     type_institution = models.ForeignKey(TypeInstitution, on_delete=models.CASCADE)
     social_network = models.ForeignKey(SocialNetwork, on_delete=models.CASCADE)
-    total_followers = models.BigIntegerField(default=0)
-    total_publications = models.BigIntegerField(default=0)
-    total_reactions = models.BigIntegerField(default=0)
-    average_views = models.FloatField(default=0.0)
-    institution_count = models.IntegerField(default=0)  # Nuevo campo
-    stats_date = models.DateField()  # Nuevo campo
+    total_followers = models.BigIntegerField(null=True, blank=True, default=0)
+    total_publications = models.BigIntegerField(null=True, blank=True, default=0)
+    total_reactions = models.BigIntegerField(null=True, blank=True, default=0)
+    average_views = models.FloatField(null=True, blank=True, default=0.0)
+    stats_date = models.DateField()
     date_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
