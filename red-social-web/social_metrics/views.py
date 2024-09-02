@@ -965,8 +965,6 @@ def manage_stats(request):
     elif request.method == 'POST':
         return create_institution_stats_api_t(request)
 
-
-
 # def get_stats_by_category_id(request):
 #     try:
 #         type_institution_id = request.query_params.get('type_institution_id')
