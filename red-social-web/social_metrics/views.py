@@ -227,7 +227,7 @@ def create_or_get_institution_from_excel( name , city, type_institution):
     except Exception as e:
         raise ValueError(f"Unexpected error creating the institution or typeInstitution: {str(e)}")
 
-def create_metrics_from_excel(followers, publications, reactions, date_collection,institution_id, id_type_institution, socialnetwork_id):
+def create_metrics_from_excel(followers, publications, reactions, date_collection, institution_id,  id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
     followers = 0 if pd.isna(followers) else max(0, float(followers))
     publications = 0 if pd.isna(publications) else max(0, float(publications))
@@ -235,9 +235,9 @@ def create_metrics_from_excel(followers, publications, reactions, date_collectio
 
     # Cálculo de average_views
     if publications > 0:
-        average_views = reactions / publications
+        average_views = round(reactions / publications, 1)
     else:
-        average_views = 0  # o podrías usar None si prefieres indicar que no se puede calcular
+        average_views = 0
 
     try:
         with transaction.atomic():
@@ -251,7 +251,8 @@ def create_metrics_from_excel(followers, publications, reactions, date_collectio
                 socialnetwork_id= socialnetwork_id
             )
             metrics.save()
-        add_followers_institution_stats(id_type_institution, socialnetwork_id, date_collection, followers)
+
+        update_institution_stats(id_type_institution, socialnetwork_id, date_collection, followers, publications, reactions)
 
     except Exception as e:
         # Capturar cualquier otra excepción no prevista
@@ -317,34 +318,37 @@ def get_channel_stats_youtube(channel):
         }
     except Exception as e:
         # Capturar cualquier otra excepción no prevista
-        raise ValueError(f"Error inesperado al crear las métricas YOUTUBE: {str(e)}", channel)
+        raise ValueError(f"Error inesperado al obtener las métricas de YOUTUBE: {str(e)}", channel)
     
-def add_followers_institution_stats(type_institution_id, social_network_id, stats_date,followers_increment):
+def update_institution_stats(type_institution_id, social_network_id, stats_date,followers_increment, publications_increment, reactions_increment):
     try:
-        print("here",type_institution_id,social_network_id,stats_date,followers_increment)
-
+        print("update stats", type_institution_id, social_network_id, stats_date, followers_increment, publications_increment,reactions_increment )
+        
         # Obtener las instancias de TypeInstitution y SocialNetwork
         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
 
-        print(type_institution,social_network)
-                
+        print(type_institution, social_network)
         # Buscar y actualizar las estadísticas
         stats, created = InstitutionStatsByType.objects.get_or_create(
-            type_institution=type_institution,
-            social_network=social_network,
-            stats_date=stats_date,
+            type_institution= type_institution,
+            social_network= social_network,
+            stats_date= stats_date,
             defaults={
                 'total_followers': followers_increment,
+                'total_publications': publications_increment,
+                'total_reactions': reactions_increment,
             }
         )
 
         if not created:
             stats.total_followers = F('total_followers') + followers_increment
+            stats.total_publications = F('total_publications') + publications_increment
+            stats.total_reactions = F('total_reactions') + reactions_increment
             stats.save()
 
         stats.refresh_from_db()  # Esto es necesario si usaste F() para actualizar
-        print(f"Total de seguidores actual: {stats.total_followers}")
+        # print(f"Total de seguidores actual: {stats.total_followers}")
 
     except Exception as e:
         raise ValueError(f"Error inesperado al crear las stats: {str(e)}")
@@ -405,9 +409,11 @@ def procesar_datos_excel(request):
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 4)
                 
                 if (fecha_recoleccion == last_period):
+                    print("gets stats from youtube platform", fecha_recoleccion)
                     stats_youtube = get_channel_stats_youtube(channel_youtube)
                     create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
                 else:
+                    print("gets stats from excel file", fecha_recoleccion)
                     followers_yt = row.iloc[13]
                     publications_yt = row.iloc[14]    
                     interactions_yt = row.iloc[15]
@@ -433,9 +439,9 @@ def procesar_datos_excel(request):
                 print(f"Followers Instagram: {followers_instagram}")
                 print(f"Publications Instagram: {publications_instagram}")
                 print(f"Interactions Instagram: {interactions_instagram}")
-                print(f"Followers YouTube: {followers_yt}")
-                print(f"Publications YouTube: {publications_yt}")
-                print(f"Interactions YouTube: {interactions_yt}")
+                # print(f"Followers YouTube: {followers_yt}")
+                # print(f"Publications YouTube: {publications_yt}")
+                # print(f"Interactions YouTube: {interactions_yt}")
                 print(f"Followers TikTok: {followers_tiktok}")
                 print(f"Publications TikTok: {publications_tiktok}")
                 print(f"Interactions TikTok: {interactions_tiktok}")
@@ -459,7 +465,6 @@ def get_name_social_network_by_id(id):
 
 def transform_data(metrics):
     institutions = {}
-
     for metric in metrics:
         institution_name = metric["institution"]
         social_network = metric["social_network"]
@@ -472,11 +477,11 @@ def transform_data(metrics):
                 "Ciudad": city,
                 "Tipo": type_institution,
                 "social_networks": {
-                    "Facebook": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
-                    "Instagram": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
-                    "Tiktok": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
-                    "X": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None},
-                    "YouTube": {"followers": 0, "publications": 0, "reactions": 0, "engagement": None}
+                    "Facebook": {"followers": 0, "publications": 0, "reactions": 0, "Average_views": None},
+                    "Instagram": {"followers": 0, "publications": 0, "reactions": 0, "Average_views": None},
+                    "Tiktok": {"followers": 0, "publications": 0, "reactions": 0, "Average_views": None},
+                    "X": {"followers": 0, "publications": 0, "reactions": 0, "Average_views": None},
+                    "YouTube": {"followers": 0, "publications": 0, "reactions": 0, "Average_views": None}
                 }
             }
         
@@ -484,7 +489,7 @@ def transform_data(metrics):
             "followers": metric["followers"],
             "publications": metric["publications"],
             "reactions": metric["reactions"],
-            "engagement": metric["engagement_rate"]
+            "Average_views": metric["Average_views"]
         })
 
     # Convertir el diccionario de instituciones a una lista
@@ -494,20 +499,16 @@ def transform_data(metrics):
     result = {"metrics": institutions_list}
     return result
 
+@api_view(['GET','POST'])
 def manage_social_metrics(request):
+    if request.method == 'GET':
+        institution_type = request.GET.get('type')
+        print(institution_type, date)
 
-    institution_type = request.GET.get('type')
-    print(institution_type, date)
-
-    if institution_type == "todos":
-        return get_metrics_by_date(request)
-        # return get_all_institutions()
-        # return JsonResponse({"error": "Tipo de institución no especificado"}, status=400)
-    
-    # return get_institutions_from_type(institution_type)
-    # return get_metrics_by_date(date(2020, 12, 1))
-    # return get_metrics_by_date(date_obj)
-    return get_metrics_by_type_and_date(request)
+        if institution_type == "todos":
+            return get_metrics_by_date(request)
+        
+        return get_metrics_by_type_and_date(request)
 
 def get_institutions_from_type(institution_type):
     try:
@@ -548,7 +549,7 @@ def get_institutions_from_type(institution_type):
             })
 
         transformed_data = transform_data(data)
-        print(transformed_data)
+        # print(transformed_data)
         return JsonResponse(transformed_data)
 
     except TypeInstitution.DoesNotExist:
@@ -585,7 +586,7 @@ def get_metrics_by_date(request):
                 "publications": metric['publications'],
                 "reactions": metric['reactions'],
                 "date_collection": metric['date_collection'],
-                "engagement_rate": metric['engagment_rate']
+                "Average_views": metric['Average_views']
             })
         
         transformed_data = transform_data(data)
@@ -622,6 +623,7 @@ def get_metrics_by_type_and_date(request):
 
         # Procesar y transformar los datos
         data = []
+        print(metrics_list)
         for item in metrics_list:
             metric = item['fields']
             institution = get_data_from_institution_by_id(metric['institution'])
@@ -637,9 +639,10 @@ def get_metrics_by_type_and_date(request):
                 "publications": metric['publications'],
                 "reactions": metric['reactions'],
                 "date_collection": metric['date_collection'],
-                "engagement_rate": metric['engagment_rate']
+                "Average_views": metric['Average_views']
             })
-
+        print("--------------------------------")
+        print(data)
         transformed_data = transform_data(data)
 
         return JsonResponse(transformed_data, safe=False)
