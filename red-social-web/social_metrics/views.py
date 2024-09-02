@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
 from django.db.models import Q, F, Prefetch
 from django.core.serializers import serialize
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.conf import settings
 from collections import defaultdict
 from datetime import date
@@ -18,6 +19,7 @@ from datetime import datetime
 from tabulate import tabulate
 from .serializers import InstitutionSerializer, TypeInstitutionSerializer
 from .exceptions import InstitutionCreationError, TypeInstitutionError
+
 
 # return render(request, 'uploadfile.html', {"excel_data":excel_data})
 pd.set_option('display.max_columns', 5)  # Muestra hasta 20 columnas
@@ -504,7 +506,6 @@ def manage_social_metrics(request):
     if request.method == 'GET':
         institution_type = request.GET.get('type')
         print(institution_type, date)
-
         if institution_type == "todos":
             return get_metrics_by_date(request)
         
@@ -598,54 +599,62 @@ def get_metrics_by_date(request):
     
 def get_metrics_by_type_and_date(request):
     try:
-        # Obtener los parámetros de la URL
         institution_type = request.GET.get('type')
         date_str = request.GET.get('date')
+        page = request.GET.get('page', 1)
+        items_per_page = 5
 
-        # Convertir la fecha de string a objeto date
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
 
-        # Construir el filtro
         filter_conditions = Q()
         if institution_type:
             filter_conditions &= Q(institution__type_institution__name=institution_type)
         if target_date:
             filter_conditions &= Q(date_collection=target_date)
 
-        # Aplicar los filtros
-        metrics = BaseMetrics.objects.filter(filter_conditions).select_related('institution', 'socialnetwork')
+        # Añadir un orden explícito
+        metrics = BaseMetrics.objects.filter(filter_conditions).select_related('institution', 'socialnetwork').order_by('institution__name', 'socialnetwork__name')
 
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
+        # Agrupar métricas por institución
+        grouped_metrics = defaultdict(lambda: {"social_networks": {}})
+        for metric in metrics:
+            institution = metric.institution
+            social_network = metric.socialnetwork.name
+            grouped_metrics[institution.name]["Institucion"] = institution.name
+            grouped_metrics[institution.name]["Ciudad"] = institution.city
+            grouped_metrics[institution.name]["Tipo"] = institution.type_institution.name
+            grouped_metrics[institution.name]["social_networks"][social_network] = {
+                "followers": metric.followers,
+                "publications": metric.publications,
+                "reactions": metric.reactions,
+                "Average_views": metric.Average_views
+            }
 
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
+        # Convertir el defaultdict a una lista para la paginación
+        metrics_list = list(grouped_metrics.values())
 
-        # Procesar y transformar los datos
-        data = []
-        print(metrics_list)
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution'])
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+        # Crear el paginador
+        paginator = Paginator(metrics_list, items_per_page)
 
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "Average_views": metric['Average_views']
-            })
-        print("--------------------------------")
-        print(data)
-        transformed_data = transform_data(data)
+        try:
+            metrics_page = paginator.page(page)
+        except PageNotAnInteger:
+            metrics_page = paginator.page(1)
+        except EmptyPage:
+            metrics_page = paginator.page(paginator.num_pages)
 
-        return JsonResponse(transformed_data, safe=False)
+        response_data = {
+            "data": {
+                "metrics": list(metrics_page)
+            },
+            "page": metrics_page.number,
+            "total_pages": paginator.num_pages,
+            "has_next": metrics_page.has_next(),
+            "has_previous": metrics_page.has_previous(),
+            "total_count": len(metrics_list)
+        }
+
+        return JsonResponse(response_data, safe=False)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -795,16 +804,15 @@ def create_institution_stats_api(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
     
-def get_stats_by_category_id(request):
+def get_stats_by_category_id_and_date(request):
     try:
         type_institution_id = request.query_params.get('type_institution_id')
-        social_network_id = request.query_params.get('social_network_id')
         stats_date = request.query_params.get('stats_date')
 
         # Validar que todos los parámetros necesarios estén presentes
-        if not all([type_institution_id, social_network_id, stats_date]):
+        if not all([type_institution_id, stats_date]):
             return Response({
-                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id y stats_date."
+                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id y stats_date."
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Convertir la fecha de string a objeto date
@@ -815,105 +823,41 @@ def get_stats_by_category_id(request):
                 "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Obtener las instancias de TypeInstitution y SocialNetwork
+        # Obtener la instancia de TypeInstitution
         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
-        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
 
-        # Buscar las estadísticas
-        stats = get_object_or_404(InstitutionStatsByType, 
+        # Obtener las estadísticas para la institución y fecha específicas
+        stats = InstitutionStatsByType.objects.filter(
             type_institution=type_institution,
-            social_network=social_network,
             stats_date=stats_date
-        )
-
-        # Preparar la respuesta
-        response_data = {
-            "id": stats.id,
-            "type_institution": stats.type_institution.name,
-            "social_network": stats.social_network.name,
-            "stats_date": stats.stats_date,
-            "total_followers": stats.total_followers,
-            "total_publications": stats.total_publications,
-            "total_reactions": stats.total_reactions,
-            "average_views": stats.average_views,
-            "date_updated": stats.date_updated
-        }
-
-        return Response(response_data)
-
-    except Exception as e:
-        return Response({
-            "error": str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-def get_stats_all_categories_by_year(request):
-    try:
-        social_network_id = request.query_params.get('social_network_id')
-        stats_date = request.query_params.get('stats_date')
-
-        # Validar que todos los parámetros necesarios estén presentes
-        if not all([social_network_id, stats_date]):
-            return Response({
-                "error": "Faltan parámetros requeridos. Se necesitan social_network_id y stats_date."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convertir la fecha de string a objeto date
-        try:
-            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({
-                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Obtener la instancia de SocialNetwork
-        social_network = get_object_or_404(SocialNetwork, id=social_network_id)
-
-        # Obtener todas las categorías (TypeInstitution) con sus estadísticas
-        categories = TypeInstitution.objects.prefetch_related(
-            Prefetch(
-                'institutionstatsbtype_set',
-                queryset=InstitutionStatsByType.objects.filter(
-                    social_network=social_network,
-                    stats_date=stats_date
-                ),
-                to_attr='filtered_stats'
-            )
-        )
+        ).select_related('social_network')
 
         # Preparar la respuesta
         response_data = []
-        for category in categories:
-            stats = category.filtered_stats[0] if category.filtered_stats else None
-            category_data = {
-                "id": category.id,
-                "name": category.name,
-                "url": category.url,
-                "ordering": category.ordering,
-                "institution_count": category.institution_count,
-                "stats": None
+        for stat in stats:
+            stat_data = {
+                "type_institution": type_institution.name,
+                "social_network": stat.social_network.name,
+                "stats_date": stats_date.strftime("%Y-%m-%d"),
+                "total_followers": stat.total_followers,
+                "total_publications": stat.total_publications,
+                "total_reactions": stat.total_reactions,
+                "average_views": stat.average_views,
+                "date_updated": stat.date_updated.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             }
-            if stats:
-                category_data["stats"] = {
-                    "id": stats.id,
-                    "total_followers": stats.total_followers,
-                    "total_publications": stats.total_publications,
-                    "total_reactions": stats.total_reactions,
-                    "average_views": stats.average_views,
-                    "date_updated": stats.date_updated
-                }
-            response_data.append(category_data)
+            response_data.append(stat_data)
 
         return Response({
-            "social_network": social_network.name,
             "stats_date": stats_date,
-            "categories": response_data
+            "stats": response_data
         })
+        
 
     except Exception as e:
         return Response({
             "error": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
 # @transaction.atomic
 def create_institution_stats_api_t(request):
     try:
@@ -950,58 +894,7 @@ def create_institution_stats_api_t(request):
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
-def get_stats_category_all_networks(request):
-    try:
-        type_institution_id = request.query_params.get('type_institution_id')
-        stats_date = request.query_params.get('stats_date')
-
-        # Validar que todos los parámetros necesarios estén presentes
-        if not all([type_institution_id, stats_date]):
-            return Response({
-                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id y stats_date."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convertir la fecha de string a objeto date
-        try:
-            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({
-                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Obtener la instancia de TypeInstitution
-        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
-
-        # Obtener todas las estadísticas para este tipo de institución en la fecha dada
-        stats = InstitutionStatsByType.objects.filter(
-            type_institution=type_institution,
-            stats_date=stats_date
-        ).select_related('social_network')
-
-        # Preparar la respuesta
-        response_data = []
-        for stat in stats:
-            stat_data = {
-                "id": stat.id,
-                "type_institution": type_institution.name,
-                "social_network": stat.social_network.name,
-                "stats_date": stat.stats_date,
-                "total_followers": stat.total_followers,
-                "total_publications": stat.total_publications,
-                "total_reactions": stat.total_reactions,
-                "average_views": stat.average_views,
-                "date_updated": stat.date_updated
-            }
-            response_data.append(stat_data)
-
-        return Response(response_data)
-
-    except Exception as e:
-        return Response({
-            "error": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-def get_stats_all_categories_networks_by_date(request):
+def get_stats_all_categories_by_date(request):
     try:
         stats_date = request.query_params.get('stats_date')
 
@@ -1064,10 +957,63 @@ def get_stats_all_categories_networks_by_date(request):
 @api_view(['GET','POST','PUT'])
 def manage_stats(request):
     if request.method == 'GET':
-        # return get_stats_category_all_networks(request)
-        return get_stats_all_categories_networks_by_date(request)
+        institution_type = request.GET.get('type_institution_id')
+        if not institution_type:
+            return get_stats_all_categories_by_date(request)
+        else:
+            return get_stats_by_category_id_and_date(request)
     elif request.method == 'POST':
         return create_institution_stats_api_t(request)
 
 
-    
+
+# def get_stats_by_category_id(request):
+#     try:
+#         type_institution_id = request.query_params.get('type_institution_id')
+#         social_network_id = request.query_params.get('social_network_id')
+#         stats_date = request.query_params.get('stats_date')
+
+#         # Validar que todos los parámetros necesarios estén presentes
+#         if not all([type_institution_id, social_network_id, stats_date]):
+#             return Response({
+#                 "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id y stats_date."
+#             }, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Convertir la fecha de string a objeto date
+#         try:
+#             stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+#         except ValueError:
+#             return Response({
+#                 "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+#             }, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Obtener las instancias de TypeInstitution y SocialNetwork
+#         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+#         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
+
+#         # Buscar las estadísticas
+#         stats = get_object_or_404(InstitutionStatsByType, 
+#             type_institution=type_institution,
+#             social_network=social_network,
+#             stats_date=stats_date
+#         )
+
+#         # Preparar la respuesta
+#         response_data = {
+#             "id": stats.id,
+#             "type_institution": stats.type_institution.name,
+#             "social_network": stats.social_network.name,
+#             "stats_date": stats.stats_date,
+#             "total_followers": stats.total_followers,
+#             "total_publications": stats.total_publications,
+#             "total_reactions": stats.total_reactions,
+#             "average_views": stats.average_views,
+#             "date_updated": stats.date_updated
+#         }
+
+#         return Response(response_data)
+
+#     except Exception as e:
+#         return Response({
+#             "error": str(e)
+#         }, status=status.HTTP_400_BAD_REQUEST)
