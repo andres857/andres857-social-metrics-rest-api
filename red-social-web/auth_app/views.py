@@ -35,11 +35,17 @@ from allauth.socialaccount.providers.linkedin_oauth2.views import LinkedInOAuth2
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
+from django.utils.encoding import force_str
+
 from django.core.exceptions import ValidationError
 import logging
 import json
 
-from django.template import RequestContext
 
 def custom_404(request, exception):
     response = render(request, 'Errors/404.html', {})
@@ -196,35 +202,68 @@ class LoginView(APIView):
                             status=status.HTTP_401_UNAUTHORIZED)
 
 class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         email = request.data.get('email')
         if not email:
-            return Response(
-                {'error': _('Email is required.')},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'El correo electrónico es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.filter(email=email).first()
-        if user:
-            # Se usa el formulario de ResetPasswordForm de allauth
-            form = ResetPasswordForm({'email': email})
-            if form.is_valid():
-                form.save(request)
-                return Response(
-                    {'message': _('Password reset e-mail has been sent.')},
-                    status=status.HTTP_200_OK
-                )
-        else:
-            # Si el usuario no existe, enviamos una respuesta genérica por seguridad
-            return Response(
-                {'message': _('If a user with this email exists, a password reset email will be sent.')},
-                status=status.HTTP_200_OK
-            )
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'No existe un usuario con este correo electrónico'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response(
-            {'error': _('An error occurred. Please try again.')},
-            status=status.HTTP_400_BAD_REQUEST
+        # Generar token
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Construir el enlace de restablecimiento
+        reset_url = f"{settings.FRONTEND_URL}/auth/reset-password/{uid}-{token}"
+        
+        # Renderizar la plantilla de correo electrónico
+        context = {
+            'user': user,
+            'reset_url': reset_url
+        }
+        
+        email_html_message = render_to_string('email/password_reset.html', context)
+
+        # Enviar correo electrónico
+        send_mail(
+            'Restablecimiento de contraseña',
+            f'Utiliza este enlace para restablecer tu contraseña: {reset_url}',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+            html_message=email_html_message,
         )
+
+        return Response({'message': 'Se ha enviado un correo electrónico con instrucciones para restablecer la contraseña'})
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uidb64 = request.data.get('uidb64')
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+
+        if not all([uidb64, token, new_password]):
+            return Response({'error': 'Todos los campos son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'error': 'Link inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({'error': 'Token inválido o expirado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': 'Contraseña restablecida exitosamente'})
 
 class CustomRegisterView(APIView):
     permission_classes = [AllowAny]
@@ -238,7 +277,10 @@ class CustomRegisterView(APIView):
                     "user": UserSerializer(user, context=self.get_serializer_context()).data,
                     "message": "User Created Successfully. Now perform Login to get your token",
                 }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "errors": serializer.errors,
+            "message": "Registration failed. Please check the input fields."
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     def get_serializer_context(self):
         return {"request": self.request}
@@ -260,47 +302,6 @@ class CustomLogoutView(LogoutView):
 
     def logout(self):
         auth_logout(self.request)
-
-class CustomPasswordResetFromKeyView(APIView):
-    def post(self, request, uidb36, key):
-        password1 = request.data.get('new_password1')
-        password2 = request.data.get('new_password2')
-
-        if not password1 or not password2:
-            return Response({
-                'error': _('Missing required fields')
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if password1 != password2:
-            return Response({
-                'error': _('Passwords do not match')
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Crear una solicitud simulada para allauth
-        dummy_request = HttpRequest()
-        dummy_request.method = 'POST'
-        dummy_request.POST = request.data
-        dummy_request.META = request.META
-
-        # Construir la URL completa
-        full_path = reverse('account_reset_password_from_key', kwargs={'uidb36': uidb36, 'key': key})
-        dummy_request.path = full_path
-
-        # Usar la vista de allauth para procesar el restablecimiento
-        view = PasswordResetFromKeyView.as_view()
-        response = view(dummy_request, uidb36=uidb36, key=key)
-        
-        print(response)
-
-        if response.status_code == 200:  # Redirección exitosa
-            return Response({
-                'success': True,
-                'message': _('Password reset successfully')
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                'error': _('Invalid or expired reset key')
-            }, status=status.HTTP_400_BAD_REQUEST)        
 
 # Validacion de Session
 @require_http_methods(["GET"])
