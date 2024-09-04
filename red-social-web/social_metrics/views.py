@@ -753,7 +753,7 @@ def bulk_channel_stats(request):
         try:
             # Simulamos una solicitud GET con el handle
             fake_request = type('FakeRequest', (), {'GET': {'query': handle}})()
-            response = get_channel_stats_youtube(fake_request)
+            response = get_channel_stats_youtube_api_function(fake_request)
             
             # JsonResponse ya contiene los datos en formato JSON, no necesitamos llamar .json()
             channel_data = response.content
