@@ -3,9 +3,32 @@ from django.db import models
 class TypeInstitution(models.Model):
     name = models.CharField(max_length=255, unique=True)
     url = models.URLField(max_length=255, blank=True, null=True)
+    ordering = models.IntegerField(null=True, blank=True)
+    institution_count = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return self.name
+class SocialNetwork(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    def __str__(self):
+        return self.name
+    
+class InstitutionStatsByType(models.Model):
+
+    type_institution = models.ForeignKey(TypeInstitution, on_delete=models.CASCADE)
+    social_network = models.ForeignKey(SocialNetwork, on_delete=models.CASCADE)
+    total_followers = models.BigIntegerField(null=True, blank=True, default=0)
+    total_publications = models.BigIntegerField(null=True, blank=True, default=0)
+    total_reactions = models.BigIntegerField(null=True, blank=True, default=0)
+    average_views = models.FloatField(null=True, blank=True, default=0.0)
+    stats_date = models.DateField()
+    date_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('type_institution', 'social_network', 'stats_date')
+
+    def __str__(self):
+        return f"{self.type_institution.name} - {self.social_network.name} Stats ({self.stats_date})"
 
 class Institution(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -14,11 +37,6 @@ class Institution(models.Model):
 
     def __str__(self):
         return self.name 
-
-class SocialNetwork(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-    def __str__(self):
-        return self.name
 
 class BaseMetrics(models.Model):
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
@@ -29,4 +47,5 @@ class BaseMetrics(models.Model):
     publications = models.BigIntegerField()
     reactions = models.BigIntegerField()
     date_collection = models.DateField(blank=True, null=True)
-    engagment_rate = models.FloatField(blank=True, null=True)
+    Average_views = models.FloatField(blank=True, null=True)
+

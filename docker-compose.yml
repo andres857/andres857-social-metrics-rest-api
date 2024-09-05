@@ -7,8 +7,6 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./red-social-web:/app
-    ports: 
-      - '8000:8000'
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
@@ -17,12 +15,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - MEI_TOKEN=${MEI_TOKEN}
       - DATABASE_URL=mysql://${DB_USERNAME}:${DB_PASSWORD}@db:3312/${DB_DATABASE}
-      - VIRTUAL_HOST=api-social-stats.windowschannel.us
-      - LETSENCRYPT_HOST=api-social-stats.windowschannel.us
+      - VIRTUAL_HOST=${BASE_URL}
+      - LETSENCRYPT_HOST=${BASE_URL}
       - LETSENCRYPT_EMAIL=info@windowschannel.com
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
-    # expose:
-    #   - "8000"
+      - BASE_URL=${BASE_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+    ports: 
+      - '8000:8000'
     networks:
       - app-network
 

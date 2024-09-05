@@ -6,13 +6,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-_20tbl%h8v*e#6wp%y758+w0ulg-w-c#5banfbp^f2)h@dpt(h'
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY')
+BASE_URL = os.environ.get('BASE_URL') # backend url 
+FRONTEND_URL = os.environ.get('FRONTEND_URL') # backend url 
 
-BASE_URL = 'https://api-social-stats.windowschannel.us'
-FRONTEND_URL = 'http://localhost:3000'
+print("FRONTEND_URL", FRONTEND_URL)
+print("BASE_URL", BASE_URL)
+
+# BASE_URL = 'https://api-stats.colombiaredessociales.com'
+# BASE_URL = 'http://5.161.74.174:3000'
+
+# FRONTEND_URL = 'https://stats.colombiaredessociales.com'
+
 GOOGLE_CALLBACK_URL = f"{BASE_URL}/auth/google/callback/"
 LINKEDIN_CALLBACK_URL = f"{BASE_URL}/auth/linkedin/callback/"
-SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'https://api-social-stats.windowschannel.us/auth/google/callback/'
-SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = 'http://localhost:3000/auth/google/callback/'
+SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = f"{FRONTEND_URL}/auth/google/callback/"
+SOCIAL_AUTH_LINKEDIN_OAUTH2_REDIRECT_URI = f"{FRONTEND_URL}/auth/google/callback/"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -69,6 +78,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api-social-stats.windowschannel.us",
     "https://redes-sociales.windowschannel.us",  # Ajusta esto a la URL de tu frontend
     "http://localhost:3000",
+    "http://5.161.74.174:3000"
 ]
 
 # permitir credenciales (cookies, headers de autorización)
@@ -136,7 +146,6 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-YOUTUBE_API_KEY=os.environ.get('YOUTUBE_API_KEY')
 
 ROOT_URLCONF = 'django_app_auth.urls'
 
