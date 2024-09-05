@@ -15,14 +15,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - MEI_TOKEN=${MEI_TOKEN}
       - DATABASE_URL=mysql://${DB_USERNAME}:${DB_PASSWORD}@db:3312/${DB_DATABASE}
-      - VIRTUAL_HOST=${BASE_URL}
-      - LETSENCRYPT_HOST=${BASE_URL}
+      - VIRTUAL_HOST=api-stats.colombiaredessociales.com
+      - LETSENCRYPT_HOST=api-stats.colombiaredessociales.com
       - LETSENCRYPT_EMAIL=info@windowschannel.com
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
       - BASE_URL=${BASE_URL}
       - FRONTEND_URL=${FRONTEND_URL}
-    ports: 
-      - '8000:8000'
+    expose:
+      - '8000'
     networks:
       - app-network
 

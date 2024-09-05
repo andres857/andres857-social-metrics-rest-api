@@ -13,10 +13,6 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL') # backend url
 print("FRONTEND_URL", FRONTEND_URL)
 print("BASE_URL", BASE_URL)
 
-# BASE_URL = 'https://api-stats.colombiaredessociales.com'
-# BASE_URL = 'http://5.161.74.174:3000'
-
-# FRONTEND_URL = 'https://stats.colombiaredessociales.com'
 
 GOOGLE_CALLBACK_URL = f"{BASE_URL}/auth/google/callback/"
 LINKEDIN_CALLBACK_URL = f"{BASE_URL}/auth/linkedin/callback/"
@@ -70,13 +66,12 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     # URL del frontend
     "http://localhost:3000",
-    "http://5.161.74.174:3000"
+    "http://5.161.74.174:3000",
+    "https://stats.colombiaredessociales.com"
 ]
 # CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://api-social-stats.windowschannel.us",
-    "https://redes-sociales.windowschannel.us",  # Ajusta esto a la URL de tu frontend
     "http://localhost:3000",
     "http://5.161.74.174:3000"
 ]
@@ -146,7 +141,6 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-
 ROOT_URLCONF = 'django_app_auth.urls'
 
 TEMPLATES = [
@@ -172,7 +166,6 @@ AUTHENTICATION_BACKENDS = [
 
 WSGI_APPLICATION = 'django_app_auth.wsgi.application'
 
-
 # Database
 DATABASES = {
     'default': {
@@ -182,20 +175,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST', '192.168.239.2' ),
         'PORT': os.environ.get('DB_PORT', '3312'),
-        # 'OPTIONS': {
-        #     'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        #     'charset': 'utf8mb4',
-        #     'use_unicode': True,
-        # },
     }
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.mysql',
-    #     'NAME': 'auth_test_db',
-    #     'USER': 'root',
-    #     'PASSWORD': '',
-    #     'HOST': 'localhost',  # IP de servidor de base de datos
-    #     'PORT': '3307',       # El puerto para MySQL
-    # }
 }
 
 
