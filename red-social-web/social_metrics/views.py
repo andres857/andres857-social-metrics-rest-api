@@ -661,7 +661,7 @@ def get_metrics_by_type_and_date(request):
 
 # function for API request handling
 def get_channel_stats_youtube_api_function(request):
-    query = request.GET.get('channel', '')
+    query = request.GET.get('query', '')
     print("Channel", query)
     api_key = settings.YOUTUBE_API_KEY
 
@@ -732,6 +732,7 @@ def get_channel_stats_youtube_api_function(request):
     
 @csrf_exempt
 def bulk_channel_stats(request):
+    print ('Bulk channel stats')
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
