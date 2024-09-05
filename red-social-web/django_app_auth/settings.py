@@ -60,7 +60,8 @@ MIDDLEWARE = [
 # Permite solicitudes desde tu frontend
 CORS_ALLOWED_ORIGINS = [
     # URL del frontend
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "http://5.161.74.174:3000"
 ]
 # CORS_ALLOW_ALL_ORIGINS = True
 
