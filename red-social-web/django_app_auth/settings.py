@@ -10,6 +10,8 @@ YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY')
 BASE_URL = os.environ.get('BASE_URL') # backend url 
 FRONTEND_URL = os.environ.get('FRONTEND_URL') # backend url 
 
+print("FRONTEND_URL", FRONTEND_URL)
+print("BASE_URL", BASE_URL)
 
 # BASE_URL = 'https://api-stats.colombiaredessociales.com'
 # BASE_URL = 'http://5.161.74.174:3000'
