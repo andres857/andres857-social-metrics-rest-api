@@ -558,8 +558,12 @@ def get_institutions_from_type(institution_type):
 
 def get_metrics_by_date(request):
     date_str = request.GET.get('date')
+    page = int(request.GET.get('page', 1))
+    items_per_page = int(request.GET.get('items_per_page', 10))  # Default to 10 items per page
+
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
-    print(target_date)
+    print(f"Target date: {target_date}")
+
     try:
         # Filtrar las métricas por la fecha específica
         metrics = BaseMetrics.objects.filter(date_collection=target_date).select_related('institution', 'socialnetwork')
@@ -590,11 +594,39 @@ def get_metrics_by_date(request):
                 "Average_views": metric['Average_views']
             })
         
+        # Transformar los datos
         transformed_data = transform_data(data)
         
-        return JsonResponse(transformed_data, safe=False)
+        # Obtener la lista de instituciones
+        institutions_list = transformed_data["metrics"]
+        
+        # Crear el paginador
+        paginator = Paginator(institutions_list, items_per_page)
+
+        try:
+            paginated_data = paginator.page(page)
+        except PageNotAnInteger:
+            paginated_data = paginator.page(1)
+        except EmptyPage:
+            paginated_data = paginator.page(paginator.num_pages)
+
+        # Preparar la respuesta
+        response_data = {
+            "data": {
+                "metrics": list(paginated_data)
+            },
+            "page": paginated_data.number,
+            "total_pages": paginator.num_pages,
+            "has_next": paginated_data.has_next(),
+            "has_previous": paginated_data.has_previous(),
+            "total_count": len(institutions_list)
+        }
+        
+        return JsonResponse(response_data, safe=False)
     
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())  # Esto imprimirá el traceback completo
         return JsonResponse({"error": str(e)}, status=500)
     
 def get_metrics_by_type_and_date(request):
