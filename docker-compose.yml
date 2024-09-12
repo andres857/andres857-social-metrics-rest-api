@@ -4,7 +4,8 @@ services:
       context: red-social-web
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: python manage.py runserver 0.0.0.0:8000
+    # command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn --timeout 300 --bind 0.0.0.0:8000 django_app_auth.wsgi:application
     volumes:
       - ./red-social-web:/app
     environment:
@@ -25,6 +26,14 @@ services:
       - '8000'
     networks:
       - app-network
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.50'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.25'
+    #       memory: 256M
 
 networks:
   app-network:
