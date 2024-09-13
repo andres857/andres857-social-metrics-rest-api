@@ -615,8 +615,8 @@ def get_metrics_by_type_and_date(request):
     try:
         institution_type = request.GET.get('type')
         date_str = request.GET.get('date')
-        page = request.GET.get('page', 1)
-        items_per_page = 5
+        # page = request.GET.get('page', 1)
+        # items_per_page = 5
 
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
 
@@ -648,24 +648,26 @@ def get_metrics_by_type_and_date(request):
         metrics_list = list(grouped_metrics.values())
 
         # Crear el paginador
-        paginator = Paginator(metrics_list, items_per_page)
+        # paginator = Paginator(metrics_list, items_per_page)
 
-        try:
-            metrics_page = paginator.page(page)
-        except PageNotAnInteger:
-            metrics_page = paginator.page(1)
-        except EmptyPage:
-            metrics_page = paginator.page(paginator.num_pages)
+        # try:
+        #     metrics_page = paginator.page(page)
+        # except PageNotAnInteger:
+        #     metrics_page = paginator.page(1)
+        # except EmptyPage:
+        #     metrics_page = paginator.page(paginator.num_pages)
 
         response_data = {
             "data": {
-                "metrics": list(metrics_page)
+                "metrics": metrics_list
+                # "metrics": list(metrics_page)
+                # "metrics": list(metrics_page)
             },
-            "page": metrics_page.number,
-            "total_pages": paginator.num_pages,
-            "has_next": metrics_page.has_next(),
-            "has_previous": metrics_page.has_previous(),
-            "total_count": len(metrics_list)
+            # "page": metrics_page.number,
+            # "total_pages": paginator.num_pages,
+            # "has_next": metrics_page.has_next(),
+            # "has_previous": metrics_page.has_previous(),
+            # "total_count": len(metrics_list)
         }
 
         return JsonResponse(response_data, safe=False)
