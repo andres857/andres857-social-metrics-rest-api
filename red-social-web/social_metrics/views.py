@@ -1,5 +1,5 @@
 import pandas as pd
-import json, os, requests
+import json, os, requests, re
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,6 +19,7 @@ from datetime import datetime
 from tabulate import tabulate
 from .serializers import InstitutionSerializer, TypeInstitutionSerializer
 from .exceptions import InstitutionCreationError, TypeInstitutionError
+from urllib.parse import urlparse, unquote, quote
 
 
 # return render(request, 'uploadfile.html', {"excel_data":excel_data})
@@ -231,6 +232,7 @@ def create_or_get_institution_from_excel( name , city, type_institution):
 
 def create_metrics_from_excel(followers, publications, reactions, date_collection, institution_id,  id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
+    print("////////////////", institution_id, socialnetwork_id, "****",followers )
     followers = 0 if pd.isna(followers) else max(0, float(followers))
     publications = 0 if pd.isna(publications) else max(0, float(publications))
     reactions = 0 if pd.isna(reactions) else max(0, float(reactions))
@@ -404,7 +406,7 @@ def procesar_datos_excel(request):
                 create_metrics_from_excel(followers_X, publications_X, interactions_facebook, fecha_recoleccion, institution_id,id_type_institution, 3)
 
                 followers_instagram = row.iloc[10]    
-                publications_instagram = row.iloc[11]    
+                publications_instagram = row.iloc[11]
                 interactions_instagram = row.iloc[12]    
                 
                 # for instagram
@@ -417,7 +419,7 @@ def procesar_datos_excel(request):
                 else:
                     print("gets stats from excel file", fecha_recoleccion)
                     followers_yt = row.iloc[13]
-                    publications_yt = row.iloc[14]    
+                    publications_yt = row.iloc[14]
                     interactions_yt = row.iloc[15]
                     create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id,id_type_institution, 5)
 
@@ -691,37 +693,76 @@ def get_metrics_by_type_and_date(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-# function for API request handling
 def get_channel_stats_youtube_api_function(request):
     query = request.GET.get('query', '')
-    print("Channel", query)
+    query_format = quote(query, safe='')  # Safely encode the query
+    print("Channell", query)
     api_key = settings.YOUTUBE_API_KEY
 
     if not api_key:
         return JsonResponse({'error': 'API key no configurada'}, status=500)
 
     base_url = 'https://www.googleapis.com/youtube/v3/channels'
-    
-    # Determinar si es un ID de canal o un nombre de usuario/handle
+    search_url = 'https://www.googleapis.com/youtube/v3/search'
+
+    # Función para extraer el nombre del canal de la URL
+    def extract_channel_name(url):
+        parsed_url = urlparse(url)
+        path = unquote(parsed_url.path)  # Decode the URL path
+        match = re.search(r'/c/(.+)$', path)
+        return quote(match.group(1)) if match else None 
+
+    # Determinar el tipo de query y ajustar los parámetros
     if query.startswith('UC'):
         params = {
             'part': 'snippet,contentDetails,statistics',
             'id': query,
             'key': api_key
         }
-    else:
-        # Si comienza con @, quitamos el @ para la búsqueda
-        if query.startswith('@'):
-            query = query[1:]
+    elif query.startswith('https://www.youtube.com/c/'):
+        # channel_name = extract_channel_name(query_format)
+        channel_name = 'CruzRojaColombiana100años'
+        
+        if not channel_name:
+            return JsonResponse({'error': 'No se pudo extraer el nombre del canal de la URL'}, status=400)
+        
+        # Primero, buscar el canal por nombre
+        search_params = {
+            'part': 'snippet',
+            'type': 'channel',
+            'q': channel_name,
+            'key': api_key
+        }
+        try:
+            search_response = requests.get(search_url, params=search_params)
+            search_response.raise_for_status()
+            search_data = search_response.json()
+            
+            if not search_data.get('items'):
+                return JsonResponse({'error': 'No se encontró el canal 1'}, status=404)
+            
+            channel_id = search_data['items'][0]['id']['channelId']
+            params = {
+                'part': 'snippet,contentDetails,statistics',
+                'id': channel_id,
+                'key': api_key
+            }
+        except requests.RequestException as e:
+            return JsonResponse({'error': f'Error al buscar el canal: {str(e)}'}, status=500)
+    elif query.startswith('@'):
+        query = query[1:]
         params = {
             'part': 'snippet,contentDetails,statistics',
             'forUsername': query,
             'key': api_key
         }
+    else:
+        return JsonResponse({'error': 'el nombre de usuario no coincide con la estructura esperada por youtube'}, status=400)
+
 
     try:
         response = requests.get(base_url, params=params)
-        response.raise_for_status()  # Esto levantará una excepción para códigos de estado no exitosos
+        response.raise_for_status()
         data = response.json()
 
         if not data.get('items'):
@@ -741,9 +782,6 @@ def get_channel_stats_youtube_api_function(request):
 
         channel_info = data['items'][0]
         statistics = channel_info['statistics']
-        print (statistics)
-        print('--------------------------------')
-        print (channel_info)
 
         return JsonResponse({
             'channel_name': channel_info['snippet']['title'],
