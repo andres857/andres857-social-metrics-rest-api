@@ -560,8 +560,6 @@ def get_institutions_from_type(institution_type):
 
 def get_metrics_by_date(request):
     date_str = request.GET.get('date')
-    page = int(request.GET.get('page', 1))
-    items_per_page = int(request.GET.get('items_per_page', 10))  # Default to 10 items per page
 
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
     print(f"Target date: {target_date}")
@@ -576,7 +574,7 @@ def get_metrics_by_date(request):
         # Convertir la cadena JSON a una lista de diccionarios
         metrics_list = json.loads(metrics_json)
         
-        # Procesar y transformar los datos como antes
+        # Procesar y transformar los datos 
         data = []
         for item in metrics_list:
             metric = item['fields']
@@ -598,30 +596,12 @@ def get_metrics_by_date(request):
         
         # Transformar los datos
         transformed_data = transform_data(data)
-        
-        # Obtener la lista de instituciones
-        institutions_list = transformed_data["metrics"]
-        
-        # Crear el paginador
-        paginator = Paginator(institutions_list, items_per_page)
-
-        try:
-            paginated_data = paginator.page(page)
-        except PageNotAnInteger:
-            paginated_data = paginator.page(1)
-        except EmptyPage:
-            paginated_data = paginator.page(paginator.num_pages)
 
         # Preparar la respuesta
         response_data = {
             "data": {
-                "metrics": list(paginated_data)
-            },
-            "page": paginated_data.number,
-            "total_pages": paginator.num_pages,
-            "has_next": paginated_data.has_next(),
-            "has_previous": paginated_data.has_previous(),
-            "total_count": len(institutions_list)
+                "metrics": transformed_data["metrics"]
+            }
         }
         
         return JsonResponse(response_data, safe=False)
