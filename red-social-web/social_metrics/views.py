@@ -965,7 +965,6 @@ def get_stats_by_category_id_and_date(request):
             "stats": response_data
         })
         
-
     except Exception as e:
         return Response({
             "error": str(e)
@@ -1010,11 +1009,12 @@ def create_institution_stats_api_t(request):
 def get_stats_all_categories_by_date(request):
     try:
         stats_date = request.query_params.get('stats_date')
+        category = request.query_params.get('category')
 
         # Validar que la fecha esté presente
-        if not stats_date:
+        if not all([stats_date,category ]):
             return Response({
-                "error": "Falta el parámetro requerido stats_date."
+                "error": "Parámetros requeridos stats_date y category"
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Convertir la fecha de string a objeto date
@@ -1025,8 +1025,8 @@ def get_stats_all_categories_by_date(request):
                 "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Obtener todas las categorías y redes sociales
-        categories = TypeInstitution.objects.all()
+        # Obtener todas los tipos de instituciones y redes sociales
+        type_institutions = TypeInstitution.objects.filter(category=category)
         social_networks = SocialNetwork.objects.all()
 
         # Obtener todas las estadísticas para la fecha dada
@@ -1042,7 +1042,7 @@ def get_stats_all_categories_by_date(request):
 
         # Preparar la respuesta
         response_data = []
-        for category in categories:
+        for category in type_institutions:
             for network in social_networks:
                 stat = stats_dict.get((category.id, network.id))
                 stat_data = {
@@ -1087,54 +1087,3 @@ def manage_stats(request):
             return get_stats_by_category_id_and_date(request)
     elif request.method == 'POST':
         return create_institution_stats_api_t(request)
-
-# def get_stats_by_category_id(request):
-#     try:
-#         type_institution_id = request.query_params.get('type_institution_id')
-#         social_network_id = request.query_params.get('social_network_id')
-#         stats_date = request.query_params.get('stats_date')
-
-#         # Validar que todos los parámetros necesarios estén presentes
-#         if not all([type_institution_id, social_network_id, stats_date]):
-#             return Response({
-#                 "error": "Faltan parámetros requeridos. Se necesitan type_institution_id, social_network_id y stats_date."
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Convertir la fecha de string a objeto date
-#         try:
-#             stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
-#         except ValueError:
-#             return Response({
-#                 "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Obtener las instancias de TypeInstitution y SocialNetwork
-#         type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
-#         social_network = get_object_or_404(SocialNetwork, id=social_network_id)
-
-#         # Buscar las estadísticas
-#         stats = get_object_or_404(InstitutionStatsByType, 
-#             type_institution=type_institution,
-#             social_network=social_network,
-#             stats_date=stats_date
-#         )
-
-#         # Preparar la respuesta
-#         response_data = {
-#             "id": stats.id,
-#             "type_institution": stats.type_institution.name,
-#             "social_network": stats.social_network.name,
-#             "stats_date": stats.stats_date,
-#             "total_followers": stats.total_followers,
-#             "total_publications": stats.total_publications,
-#             "total_reactions": stats.total_reactions,
-#             "average_views": stats.average_views,
-#             "date_updated": stats.date_updated
-#         }
-
-#         return Response(response_data)
-
-#     except Exception as e:
-#         return Response({
-#             "error": str(e)
-#         }, status=status.HTTP_400_BAD_REQUEST)
