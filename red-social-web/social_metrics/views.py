@@ -43,13 +43,15 @@ def create_social_network(request):
         
         # Extraer los datos
         nombre = data.get('nombre')
-        percentage = data.get('percentage')
+        percentage_correction_type_institution = data.get('percentage_type_institution')
+        percentage_correction_social_network = data.get('percentage_social_network')
         
         # Crear el registro en la base de datos
         with transaction.atomic():
             social_network = SocialNetwork(
                 name=nombre,
-                percent_correction = percentage
+                percentage_correction_type_institutions = percentage_correction_type_institution,
+                percentage_correction_social_networks = percentage_correction_social_network
             )
             social_network.save()
 
@@ -59,7 +61,8 @@ def create_social_network(request):
             'data': {
                 'id': social_network.id,
                 'nombre': social_network.name,
-                'percentage': social_network.percent_correction
+                'percentage_type_institution': social_network.percentage_correction_type_institutions,
+                'percentage_social_network': social_network.percentage_correction_social_networks
             }
         }
 
@@ -75,7 +78,8 @@ def update_social_network(request, id):
         data = json.loads(request.body)
         
         # Extraer los datos
-        percentage = data.get('percentage')
+        percentage_correction_type_institution = data.get('percentage_type_institution')
+        percentage_correction_social_network = data.get('percentage_social_network')
         
         # Obtener el registro existente
         try:
@@ -85,8 +89,9 @@ def update_social_network(request, id):
         
         # Actualizar el registro en la base de datos
         with transaction.atomic():
-            if percentage is not None:
-                social_network.percent_correction = percentage
+            if percentage_correction_type_institution is not None:
+                social_network.percentage_correction_type_institutions = percentage_correction_type_institution
+                social_network.percentage_correction_social_networks = percentage_correction_social_network
             social_network.save()
 
         response_data = {
@@ -95,7 +100,9 @@ def update_social_network(request, id):
             'data': {
                 'id': social_network.id,
                 'nombre': social_network.name,
-                'percentage': social_network.percent_correction
+                'percentage_type_institution': social_network.percentage_correction_type_institutions,
+                'percentage_social_network': social_network.percentage_correction_social_networks
+
             }
         }
 
@@ -942,6 +949,17 @@ def get_stats_by_category_id_and_date(request):
             }
             response_data.append(stat_data)
 
+        #aplicar el factor de correccion a la redes sociales
+        for stat in response_data:
+            followers = stat['total_followers']
+            social_network = stat['social_network']
+            social_networks_data = SocialNetwork.objects.get(name=social_network)
+            
+            percentage = social_networks_data.percentage_correction_social_networks
+            followers = followers - ( followers * percentage / 100)
+            stat['total_followers'] = round(followers)
+
+    
         return Response({
             "stats_date": stats_date,
             "stats": response_data
@@ -1040,13 +1058,12 @@ def get_stats_all_categories_by_date(request):
                 response_data.append(stat_data)
 
         #aplicar el factor de correccion a la redes sociales
-        stats = []
         for stat in response_data:
             followers = stat['total_followers']
             social_network = stat['social_network']
             social_networks_data = SocialNetwork.objects.get(name=social_network)
             
-            percentage = social_networks_data.percent_correction
+            percentage = social_networks_data.percentage_correction_type_institutions
             followers = followers - ( followers * percentage / 100)
             stat['total_followers'] = round(followers)
 

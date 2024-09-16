@@ -11,7 +11,9 @@ class TypeInstitution(models.Model):
     
 class SocialNetwork(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    percent_correction = models.IntegerField(null=True, blank=True, default=0)
+    percentage_correction_type_institutions = models.IntegerField(null=True, blank=True, default=0)
+    percentage_correction_social_networks = models.IntegerField(null=True, blank=True, default=0)
+
     def __str__(self):
         return self.name
     
