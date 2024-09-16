@@ -169,9 +169,10 @@ def create_institution(request):
         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
 
 def list_categories(request):
+    category = request.query_params.get('category')
     try:
         # Obtener todas las instituciones
-        type_institutions = TypeInstitution.objects.all()
+        type_institutions = TypeInstitution.objects.filter(category=category)
 
         # Serializar los datos
         serializer = TypeInstitutionSerializer(type_institutions, many=True)
