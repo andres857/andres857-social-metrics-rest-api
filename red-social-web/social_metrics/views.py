@@ -28,40 +28,82 @@ pd.set_option('display.max_columns', 5)  # Muestra hasta 20 columnas
 def uploadFile(request):
     return render(request, 'uploadfile.html')
 
+@api_view(['POST', 'PUT'])
+def manage_social_networks(request,id):
+    if request.method == 'POST':
+        return create_social_network(request)
+    elif request.method == 'PUT':
+        return update_social_network(request,id)
+    
 @csrf_exempt
 def create_social_network(request):
-    if request.method == 'POST':
-        try:
-            # Parsear el JSON del cuerpo de la solicitud
-            data = json.loads(request.body)
-            
-            # Extraer los datos
-            nombre = data.get('nombre')
-            
-            # Crear el registro en la base de datos
-            with transaction.atomic():
-                social_network = SocialNetwork(
-                    name=nombre,
-                )
-                social_network.save()
+    try:
+        # Parsear el JSON del cuerpo de la solicitud
+        data = json.loads(request.body)
+        
+        # Extraer los datos
+        nombre = data.get('nombre')
+        percentage = data.get('percentage')
+        
+        # Crear el registro en la base de datos
+        with transaction.atomic():
+            social_network = SocialNetwork(
+                name=nombre,
+                percent_correction = percentage
+            )
+            social_network.save()
 
-            response_data = {
-                'status': 'success',
-                'message': 'Institución creada correctamente',
-                'data': {
-                    'id': social_network.id,
-                    'nombre': social_network.name
-                }
+        response_data = {
+            'status': 'success',
+            'message': 'Institución creada correctamente',
+            'data': {
+                'id': social_network.id,
+                'nombre': social_network.name,
+                'percentage': social_network.percent_correction
             }
+        }
 
-            return JsonResponse(response_data, status=201)
-        
-        except json.JSONDecodeError:
-            return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
-        
-    else:
-        return JsonResponse({'status': 'error', 'message': 'Método no permitido'}, status=405)
+        return JsonResponse(response_data, status=201)
     
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
+
+@csrf_exempt
+def update_social_network(request, id):
+    try:
+        # Parsear el JSON del cuerpo de la solicitud
+        data = json.loads(request.body)
+        
+        # Extraer los datos
+        percentage = data.get('percentage')
+        
+        # Obtener el registro existente
+        try:
+            social_network = SocialNetwork.objects.get(id=id)
+        except SocialNetwork.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'SocialNetwork no encontrada'}, status=404)
+        
+        # Actualizar el registro en la base de datos
+        with transaction.atomic():
+            if percentage is not None:
+                social_network.percent_correction = percentage
+            social_network.save()
+
+        response_data = {
+            'status': 'success',
+            'message': 'SocialNetwork actualizada correctamente',
+            'data': {
+                'id': social_network.id,
+                'nombre': social_network.name,
+                'percentage': social_network.percent_correction
+            }
+        }
+
+        return JsonResponse(response_data, status=200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)        
+
 @csrf_exempt
 def create_institution(request):
     try:
@@ -996,6 +1038,17 @@ def get_stats_all_categories_by_date(request):
                     "date_updated": stat.date_updated if stat else None
                 }
                 response_data.append(stat_data)
+
+        #aplicar el factor de correccion a la redes sociales
+        stats = []
+        for stat in response_data:
+            followers = stat['total_followers']
+            social_network = stat['social_network']
+            social_networks_data = SocialNetwork.objects.get(name=social_network)
+            
+            percentage = social_networks_data.percent_correction
+            followers = followers - ( followers * percentage / 100)
+            stat['total_followers'] = round(followers)
 
         return Response({
             "stats_date": stats_date,
