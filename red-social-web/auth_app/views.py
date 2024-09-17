@@ -268,22 +268,28 @@ class ResetPasswordView(APIView):
 class CustomRegisterView(APIView):
     permission_classes = [AllowAny]
 
+    @method_decorator(ensure_csrf_cookie)
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             if user:
+                logger.info(f"Usuario creado: {user.email}")
+                
+                # Iniciar sesión manualmente
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                
+                logger.info(f"Usuario autenticado y sesión iniciada: {user.email}")
                 return Response({
-                    "user": UserSerializer(user, context=self.get_serializer_context()).data,
-                    "message": "User Created Successfully. Now perform Login to get your token",
+                    "user": UserSerializer(user).data,
+                    "detail": "Usuario creado e iniciada sesión con éxito.",
                 }, status=status.HTTP_201_CREATED)
+        else:
+            logger.error(f"Error de validación: {serializer.errors}")
         return Response({
             "errors": serializer.errors,
-            "message": "Registration failed. Please check the input fields."
+            "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
-
-    def get_serializer_context(self):
-        return {"request": self.request}
 
 @method_decorator(csrf_protect, name='dispatch')
 class CustomLogoutView(LogoutView):
