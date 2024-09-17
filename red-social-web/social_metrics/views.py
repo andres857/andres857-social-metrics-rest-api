@@ -610,14 +610,19 @@ def get_institutions_from_type(institution_type):
 
 def get_metrics_by_date(request):
     date_str = request.GET.get('date')
+    category = request.GET.get('category')
 
     target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
-    print(f"Target date: {target_date}")
+    print(f"Target date 1: {target_date}")
 
     try:
         # Filtrar las métricas por la fecha específica
         metrics = BaseMetrics.objects.filter(date_collection=target_date).select_related('institution', 'socialnetwork')
         
+        # Si se proporciona una categoría, filtrar por ella
+        if category:
+            metrics = metrics.filter(institution__type_institution__category=category)
+
         # Serializar el QuerySet a JSON
         metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
         
@@ -665,8 +670,6 @@ def get_metrics_by_type_and_date(request):
     try:
         institution_type = request.GET.get('type')
         date_str = request.GET.get('date')
-        # page = request.GET.get('page', 1)
-        # items_per_page = 5
 
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
 
