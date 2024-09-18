@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from allauth.account.models import EmailAddress
 
+from users.models import UserRole, Role
+
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,5 +38,9 @@ class UserSerializer(serializers.ModelSerializer):
             verified=False,
             primary=True
         )
+        
+        # Asignar el rol "general_user"
+        general_user_role = Role.objects.get(identifier='=805MHj0')
+        UserRole.objects.create(user=user, role=general_user_role)
         
         return user
