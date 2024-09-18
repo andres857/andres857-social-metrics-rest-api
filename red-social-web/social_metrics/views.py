@@ -954,14 +954,14 @@ def get_stats_by_category_id_and_date(request):
             response_data.append(stat_data)
 
         #aplicar el factor de correccion a la redes sociales
-        for stat in response_data:
-            followers = stat['total_followers']
-            social_network = stat['social_network']
-            social_networks_data = SocialNetwork.objects.get(name=social_network)
+        # for stat in response_data:
+        #     followers = stat['total_followers']
+        #     social_network = stat['social_network']
+        #     social_networks_data = SocialNetwork.objects.get(name=social_network)
             
-            percentage = social_networks_data.percentage_correction_social_networks
-            followers = followers - ( followers * percentage / 100)
-            stat['total_followers'] = round(followers)
+        #     percentage = social_networks_data.percentage_correction_social_networks
+        #     followers = followers - ( followers * percentage / 100)
+        #     stat['total_followers'] = round(followers)
 
     
         return Response({
@@ -1011,6 +1011,7 @@ def create_institution_stats_api_t(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 def get_stats_all_categories_by_date(request):
+    print('here')
     try:
         stats_date = request.query_params.get('stats_date')
         category = request.query_params.get('category')
@@ -1061,15 +1062,15 @@ def get_stats_all_categories_by_date(request):
                 }
                 response_data.append(stat_data)
 
-        #aplicar el factor de correccion a la redes sociales
-        for stat in response_data:
-            followers = stat['total_followers']
-            social_network = stat['social_network']
-            social_networks_data = SocialNetwork.objects.get(name=social_network)
+        # #aplicar el factor de correccion a la redes sociales
+        # for stat in response_data:
+        #     followers = stat['total_followers']
+        #     social_network = stat['social_network']
+        #     social_networks_data = SocialNetwork.objects.get(name=social_network)
             
-            percentage = social_networks_data.percentage_correction_type_institutions
-            followers = followers - ( followers * percentage / 100)
-            stat['total_followers'] = round(followers)
+        #     percentage = social_networks_data.percentage_correction_type_institutions
+        #     followers = followers - ( followers * percentage / 100)
+        #     stat['total_followers'] = round(followers)
 
         return Response({
             "stats_date": stats_date,
