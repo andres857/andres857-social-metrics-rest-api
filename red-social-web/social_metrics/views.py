@@ -1061,15 +1061,18 @@ def get_stats_all_categories_by_date(request):
                 }
                 response_data.append(stat_data)
 
-        # #aplicar el factor de correccion a la redes sociales
-        # for stat in response_data:
-        #     followers = stat['total_followers']
-        #     social_network = stat['social_network']
-        #     social_networks_data = SocialNetwork.objects.get(name=social_network)
+        #aplicar el factor de correccion al tipo de institucion
+        for stat in response_data:
+            followers = stat['total_followers']
+            # social_network = stat['social_network']
+            type_institution = stat['type_institution']
             
-        #     percentage = social_networks_data.percentage_correction_type_institutions
-        #     followers = followers - ( followers * percentage / 100)
-        #     stat['total_followers'] = round(followers)
+            # social_networks_data = SocialNetwork.objects.get(name=social_network)
+            p_correction = TypeInstitution.objects.get(name=type_institution)
+
+            percentage = p_correction.percentage_correction
+            followers = followers - ( followers * percentage / 100)
+            stat['total_followers'] = round(followers)
 
         return Response({
             "stats_date": stats_date,

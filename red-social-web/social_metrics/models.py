@@ -6,14 +6,14 @@ class TypeInstitution(models.Model):
     url = models.URLField(max_length=255, blank=True, null=True)
     ordering = models.IntegerField(null=True, blank=True)
     institution_count = models.IntegerField(null=True, blank=True, default=0)
+    percentage_correction = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return self.name
     
 class SocialNetwork(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    # percentage_correction_type_institutions = models.IntegerField(null=True, blank=True, default=0)
-    # percentage_correction_social_networks = models.IntegerField(null=True, blank=True, default=0)
+    percentage_correction = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return self.name
