@@ -50,8 +50,8 @@ def create_social_network(request):
         with transaction.atomic():
             social_network = SocialNetwork(
                 name=nombre,
-                percentage_correction_type_institutions = percentage_correction_type_institution,
-                percentage_correction_social_networks = percentage_correction_social_network
+                # percentage_correction_type_institutions = percentage_correction_type_institution,
+                # percentage_correction_social_networks = percentage_correction_social_network
             )
             social_network.save()
 
@@ -61,8 +61,8 @@ def create_social_network(request):
             'data': {
                 'id': social_network.id,
                 'nombre': social_network.name,
-                'percentage_type_institution': social_network.percentage_correction_type_institutions,
-                'percentage_social_network': social_network.percentage_correction_social_networks
+                # 'percentage_type_institution': social_network.percentage_correction_type_institutions,
+                # 'percentage_social_network': social_network.percentage_correction_social_networks
             }
         }
 
@@ -71,45 +71,45 @@ def create_social_network(request):
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
 
-@csrf_exempt
-def update_social_network(request, id):
-    try:
-        # Parsear el JSON del cuerpo de la solicitud
-        data = json.loads(request.body)
+# @csrf_exempt
+# def update_social_network(request, id):
+#     try:
+#         # Parsear el JSON del cuerpo de la solicitud
+#         data = json.loads(request.body)
         
-        # Extraer los datos
-        percentage_correction_type_institution = data.get('percentage_type_institution')
-        percentage_correction_social_network = data.get('percentage_social_network')
+#         # Extraer los datos
+#         percentage_correction_type_institution = data.get('percentage_type_institution')
+#         percentage_correction_social_network = data.get('percentage_social_network')
         
-        # Obtener el registro existente
-        try:
-            social_network = SocialNetwork.objects.get(id=id)
-        except SocialNetwork.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'SocialNetwork no encontrada'}, status=404)
+#         # Obtener el registro existente
+#         try:
+#             social_network = SocialNetwork.objects.get(id=id)
+#         except SocialNetwork.DoesNotExist:
+#             return JsonResponse({'status': 'error', 'message': 'SocialNetwork no encontrada'}, status=404)
         
-        # Actualizar el registro en la base de datos
-        with transaction.atomic():
-            if percentage_correction_type_institution is not None:
-                social_network.percentage_correction_type_institutions = percentage_correction_type_institution
-                social_network.percentage_correction_social_networks = percentage_correction_social_network
-            social_network.save()
+#         # Actualizar el registro en la base de datos
+#         with transaction.atomic():
+#             if percentage_correction_type_institution is not None:
+#                 social_network.percentage_correction_type_institutions = percentage_correction_type_institution
+#                 social_network.percentage_correction_social_networks = percentage_correction_social_network
+#             social_network.save()
 
-        response_data = {
-            'status': 'success',
-            'message': 'SocialNetwork actualizada correctamente',
-            'data': {
-                'id': social_network.id,
-                'nombre': social_network.name,
-                'percentage_type_institution': social_network.percentage_correction_type_institutions,
-                'percentage_social_network': social_network.percentage_correction_social_networks
+#         response_data = {
+#             'status': 'success',
+#             'message': 'SocialNetwork actualizada correctamente',
+#             'data': {
+#                 'id': social_network.id,
+#                 'nombre': social_network.name,
+#                 'percentage_type_institution': social_network.percentage_correction_type_institutions,
+#                 'percentage_social_network': social_network.percentage_correction_social_networks
 
-            }
-        }
+#             }
+#         }
 
-        return JsonResponse(response_data, status=200)
+#         return JsonResponse(response_data, status=200)
     
-    except json.JSONDecodeError:
-        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)        
+#     except json.JSONDecodeError:
+#         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)        
 
 @csrf_exempt
 def create_institution(request):
@@ -963,7 +963,6 @@ def get_stats_by_category_id_and_date(request):
         #     followers = followers - ( followers * percentage / 100)
         #     stat['total_followers'] = round(followers)
 
-    
         return Response({
             "stats_date": stats_date,
             "stats": response_data
