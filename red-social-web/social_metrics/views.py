@@ -909,69 +909,6 @@ def create_institution_stats_api(request):
         return Response({
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-    
-def get_stats_by_category_id_and_date(request):
-    try:
-        type_institution_id = request.query_params.get('type_institution_id')
-        stats_date = request.query_params.get('stats_date')
-
-        # Validar que todos los parámetros necesarios estén presentes
-        if not all([type_institution_id, stats_date]):
-            return Response({
-                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id y stats_date."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convertir la fecha de string a objeto date
-        try:
-            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({
-                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Obtener la instancia de TypeInstitution
-        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
-
-        # Obtener las estadísticas para la institución y fecha específicas
-        stats = InstitutionStatsByType.objects.filter(
-            type_institution=type_institution,
-            stats_date=stats_date
-        ).select_related('social_network')
-
-        # Preparar la respuesta
-        response_data = []
-        for stat in stats:
-            stat_data = {
-                "type_institution": type_institution.name,
-                "social_network": stat.social_network.name,
-                "stats_date": stats_date.strftime("%Y-%m-%d"),
-                "total_followers": stat.total_followers,
-                "total_publications": stat.total_publications,
-                "total_reactions": stat.total_reactions,
-                "average_views": stat.average_views,
-                "date_updated": stat.date_updated.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            }
-            response_data.append(stat_data)
-
-        #aplicar el factor de correccion a la redes sociales
-        # for stat in response_data:
-        #     followers = stat['total_followers']
-        #     social_network = stat['social_network']
-        #     social_networks_data = SocialNetwork.objects.get(name=social_network)
-            
-        #     percentage = social_networks_data.percentage_correction_social_networks
-        #     followers = followers - ( followers * percentage / 100)
-        #     stat['total_followers'] = round(followers)
-
-        return Response({
-            "stats_date": stats_date,
-            "stats": response_data
-        })
-        
-    except Exception as e:
-        return Response({
-            "error": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # @transaction.atomic
 def create_institution_stats_api_t(request):
@@ -1064,15 +1001,19 @@ def get_stats_all_categories_by_date(request):
         #aplicar el factor de correccion al tipo de institucion
         for stat in response_data:
             followers = stat['total_followers']
-            # social_network = stat['social_network']
             type_institution = stat['type_institution']
             
-            # social_networks_data = SocialNetwork.objects.get(name=social_network)
             p_correction = TypeInstitution.objects.get(name=type_institution)
-
-            percentage = p_correction.percentage_correction
-            followers = followers - ( followers * percentage / 100)
-            stat['total_followers'] = round(followers)
+            # se evalua adicional la red social de tiktok
+            if (stat['social_network'] == 'Tiktok'):
+                percentage = 5
+                followers = followers - ( followers * percentage / 100)
+                stat['total_followers'] = round(followers)
+                print('seguidores en tiktok finales', stat['total_followers'] )
+            else:
+                percentage = p_correction.percentage_correction
+                followers = followers - ( followers * percentage / 100)
+                stat['total_followers'] = round(followers)
 
         return Response({
             "stats_date": stats_date,
@@ -1083,7 +1024,91 @@ def get_stats_all_categories_by_date(request):
         return Response({
             "error": str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
+def get_stats_by_category_id_and_date(request):
+    try:
+        type_institution_id = request.query_params.get('type_institution_id')
+        stats_date = request.query_params.get('stats_date')
+
+        # Validar que todos los parámetros necesarios estén presentes
+        if not all([type_institution_id, stats_date]):
+            return Response({
+                "error": "Faltan parámetros requeridos. Se necesitan type_institution_id y stats_date."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convertir la fecha de string a objeto date
+        try:
+            stats_date = datetime.strptime(stats_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "error": "Formato de fecha incorrecto. Use YYYY-MM-DD."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener la instancia de TypeInstitution
+        type_institution = get_object_or_404(TypeInstitution, id=type_institution_id)
+
+        # Obtener las estadísticas para la institución y fecha específicas
+        stats = InstitutionStatsByType.objects.filter(
+            type_institution=type_institution,
+            stats_date=stats_date
+        ).select_related('social_network')
+
+        # Preparar la respuesta
+        response_data = []
+        for stat in stats:
+            stat_data = {
+                "type_institution": type_institution.name,
+                "social_network": stat.social_network.name,
+                "stats_date": stats_date.strftime("%Y-%m-%d"),
+                "total_followers": stat.total_followers,
+                "total_publications": stat.total_publications,
+                "total_reactions": stat.total_reactions,
+                "average_views": stat.average_views,
+                "date_updated": stat.date_updated.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            }
+            response_data.append(stat_data)
+
+        #aplicar el factor de correccion al tipo de institucion
+        for stat in response_data:
+            followers = stat['total_followers']
+            type_institution = stat['type_institution']
+            
+            p_correction = TypeInstitution.objects.get(name=type_institution)
+            # se evalua adicional la red social de tiktok
+            if (stat['social_network'] == 'Tiktok'):
+                percentage = 5
+                followers = followers - ( followers * percentage / 100)
+                stat['total_followers'] = round(followers)
+                print('seguidores en tiktok finales', stat['total_followers'] )
+            else:
+                percentage = p_correction.percentage_correction
+                followers = followers - ( followers * percentage / 100)
+                stat['total_followers'] = round(followers)
+                
+        #aplicar el factor de correccion a la red social
+        social_networks = SocialNetwork.objects.all()
+        for social_network in social_networks:
+            print(social_network.name, social_network.percentage_correction ,'%')
+            for stat in response_data:
+                # print stat
+                if (social_network.name == stat['social_network'] ):
+                    print( 'red social', social_network.name,'=', stat['social_network'], 'seguidores=', stat['total_followers'])
+                    followers = stat['total_followers']
+                    p_correction = social_network.percentage_correction
+                    followers = followers - ( followers * p_correction / 100)
+                    stat['total_followers'] = round(followers)
+                    print( '[end]','red social', social_network.name,'=', stat['social_network'], 'seguidores=', stat['total_followers'])
+
+        return Response({
+            "stats_date": stats_date,
+            "stats": response_data
+        })
+        
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 @api_view(['GET','POST','PUT'])
 def manage_stats(request):
     if request.method == 'GET':
