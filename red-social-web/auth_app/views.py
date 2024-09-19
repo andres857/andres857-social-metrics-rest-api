@@ -100,7 +100,7 @@ def linkedin_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
-            return redirect(f"{settings.FRONTEND_URL}/Principal/main")
+            return redirect(f"{settings.FRONTEND_URL}/salud")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
     except Exception as e:
