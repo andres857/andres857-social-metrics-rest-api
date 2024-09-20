@@ -48,7 +48,8 @@ class CustomUser(AbstractUser):
         null=True,
         verbose_name="Número de Identificación"
     )
-    photoprofile_path = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    photoprofile_path = models.ImageField(upload_to='profile_pics/', blank=True, null=True, max_length=300)
+    organization = models.CharField(max_length=150, blank=True, null=True)
     # Agregar otro campo que se requiera
     
     objects = CustomUserManager()

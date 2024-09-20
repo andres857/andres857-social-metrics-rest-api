@@ -46,6 +46,11 @@ from django.core.exceptions import ValidationError
 import logging
 import json
 
+import requests
+from io import BytesIO
+
+from django.core.files.base import ContentFile
+
 
 def custom_404(request, exception):
     response = render(request, 'Errors/404.html', {})
@@ -137,11 +142,43 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 username=sociallogin.account.extra_data.get('email').split('@')[0],
                 first_name=sociallogin.account.extra_data.get('given_name'),
                 last_name=sociallogin.account.extra_data.get('family_name'),
+                organization=sociallogin.account.extra_data.get('organization', '')
             )
+
+            # Obtener y guardar la foto de perfil
+            picture_url = sociallogin.account.extra_data.get('picture')
+            if picture_url:
+                response = requests.get(picture_url)
+                if response.status_code == 200:
+                    img_temp = BytesIO(response.content)
+                    user.photoprofile_path.save(f"{user.username}_profile.jpg", ContentFile(img_temp.getvalue()), save=False)
+
             user.save()
+
+            print(user)
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
+
+        else:
+            # Si el usuario ya existe, actualizamos la información si es necesario
+            update_fields = []
+            if 'organization' in sociallogin.account.extra_data:
+                user.organization = sociallogin.account.extra_data['organization']
+                update_fields.append('organization')
+            
+            # Actualizar la foto de perfil si ha cambiado
+            picture_url = sociallogin.account.extra_data.get('picture')
+            if picture_url and user.photoprofile_path.name == '':
+                response = requests.get(picture_url)
+                if response.status_code == 200:
+                    img_temp = BytesIO(response.content)
+                    user.photoprofile_path.save(f"{user.username}_profile.jpg", ContentFile(img_temp.getvalue()), save=False)
+                    update_fields.append('photoprofile_path')
+            
+            if update_fields:
+                user.save(update_fields=update_fields)
+        return None
 
 @api_view(['GET'])
 def google_callback(request):
@@ -341,7 +378,8 @@ def user_detail(request):
         'is_active': user.is_active,
         'date_joined': user.date_joined.isoformat(),
         'last_login': user.last_login.isoformat() if user.last_login else None,
-        'profile_picture': user.profile.picture_url if hasattr(user, 'profile') else None,
+        'profile_picture': user.profile_picture if hasattr(user, 'profile') else None,
+        'organization': user.organization if hasattr(user, 'organization') else None,
         # Añadir cualquier otro campo que se necesite
     })
     

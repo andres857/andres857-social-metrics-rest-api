@@ -14,12 +14,13 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'password', 'password2', 'first_name', 'last_name', 'identification',
-                  'phone')
+                  'phone', 'organization')
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
             'identification': {'required': True},
-            'email': {'required': True}
+            'email': {'required': True},
+            'organization': {'required': False}
         }
 
     def validate(self, attrs):
