@@ -7,6 +7,7 @@ class TypeInstitution(models.Model):
     ordering = models.IntegerField(null=True, blank=True)
     institution_count = models.IntegerField(null=True, blank=True, default=0)
     percentage_correction = models.IntegerField(null=True, blank=True, default=0)
+    percentage_correction_in_network_social = models.IntegerField(null=True, blank=True, default=0)
 
     def __str__(self):
         return self.name
