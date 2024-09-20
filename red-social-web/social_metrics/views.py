@@ -1021,7 +1021,6 @@ def get_stats_all_categories_by_date(request):
         followers_YouTube = 0
         followers_Tiktok = 0
 
-        social_networks = SocialNetwork.objects.all()
         for stat in response_data:
             type_institution = stat['type_institution']
             followers = stat['total_followers']
@@ -1031,63 +1030,63 @@ def get_stats_all_categories_by_date(request):
                 print('tipo de institucion:', institution, 'percentage_correction', percentage_correction)
                 print('followers sin el factor de correccion:', stat['total_followers'] )
                 followers = followers - ( followers * percentage_correction / 100)
-                stat['total_followers'] = round(followers)
+                # stat['total_followers'] = round(followers)
                 print( '[end]','followers con el factor de correccion:', stat['total_followers'])
-                followers_facebook += stat['total_followers']
+                followers_facebook += round(followers)
             elif (stat['social_network'] == 'X'):
                 institution = TypeInstitution.objects.get(name=type_institution)
                 percentage_correction = institution.percentage_correction_in_network_social
                 print('tipo de institucion:', institution, 'percentage_correction', percentage_correction)
                 print('followers sin el factor de correccion:', stat['total_followers'] )
                 followers = followers - ( followers * percentage_correction / 100)
-                stat['total_followers'] = round(followers)
+                # stat['total_followers'] = round(followers)
                 print( '[end]','followers con el factor de correccion:', stat['total_followers'])
-                followers_X += stat['total_followers']
+                followers_X += round(followers)
             if (stat['social_network'] == 'Instagram'):
                 institution = TypeInstitution.objects.get(name=type_institution)
                 percentage_correction = institution.percentage_correction_in_network_social
                 print('tipo de institucion:', institution, 'percentage_correction', percentage_correction)
                 print('followers sin el factor de correccion:', stat['total_followers'] )
                 followers = followers - ( followers * percentage_correction / 100)
-                stat['total_followers'] = round(followers)
+                # stat['total_followers'] = round(followers)
                 print( '[end]','followers con el factor de correccion:', stat['total_followers'])
-                followers_Instagram += stat['total_followers']
+                followers_Instagram += round(followers)
             elif (stat['social_network'] == 'YouTube'):
                 institution = TypeInstitution.objects.get(name=type_institution)
                 percentage_correction = institution.percentage_correction_in_network_social
                 print('tipo de institucion:', institution, 'percentage_correction', percentage_correction)
                 print('followers sin el factor de correccion:', stat['total_followers'] )
                 followers = followers - ( followers * percentage_correction / 100)
-                stat['total_followers'] = round(followers)
+                # stat['total_followers'] = round(followers)
                 print( '[end]','followers con el factor de correccion:', stat['total_followers'])
-                followers_YouTube += stat['total_followers']
+                followers_YouTube += round(followers)
             elif (stat['social_network'] == 'Tiktok'):
                 institution = TypeInstitution.objects.get(name=type_institution)
                 percentage_correction = institution.percentage_correction_in_network_social
                 print('tipo de institucion:', institution, 'percentage_correction', percentage_correction)
                 print('followers sin el factor de correccion:', stat['total_followers'] )
                 followers = followers - ( followers * percentage_correction / 100)
-                stat['total_followers'] = round(followers)
+                # stat['total_followers'] = round(followers)
                 print( '[end]','followers con el factor de correccion:', stat['total_followers'])
-                followers_Tiktok += stat['total_followers']
+                followers_Tiktok += round(followers)
             else:
                 pass
-        print('followers facebook',followers_facebook)
-        print('followers X',followers_X )
-        print('followers insta',followers_Instagram)
-        print('followers youtube',followers_YouTube)
-        print('followers tiktok',followers_Tiktok )
+        print('followers facebook', followers_facebook)
+        print('followers X', followers_X )
+        print('followers insta', followers_Instagram)
+        print('followers youtube', followers_YouTube)
+        print('followers tiktok', followers_Tiktok )
 
         return Response({
             "stats_date": stats_date,
-            "stats": response_data,
-            "followers": {
+            "unique_followers": {
                 "facebook": followers_facebook,
                 "X": followers_X,
                 "Instagram": followers_Instagram,
                 "YouTube": followers_YouTube,
                 "Tiktok": followers_Tiktok
-            }
+            },
+            "stats": response_data,
         })
 
     except Exception as e:
