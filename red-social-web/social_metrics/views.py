@@ -243,7 +243,7 @@ funciones para crear los registros desde el archivo excel
 """
 def convertir_nombre_pestana_a_fecha(nombre_pestana):
     # Asumiendo que el nombre de la pestaña está en formato 'YYYY-MM'
-    return datetime.strptime(nombre_pestana, '%Y-%m')
+    return datetime.strptime(nombre_pestana, f'%Y-%m-%d')
 
 def create_or_get_institution_from_excel( name , city, type_institution):
     url = 'http://test.image'
@@ -282,7 +282,7 @@ def create_or_get_institution_from_excel( name , city, type_institution):
 
 def create_metrics_from_excel(followers, publications, reactions, date_collection, institution_id,  id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
-    print("////////////////", institution_id, socialnetwork_id, "****",followers )
+    # print("////////////////", institution_id, socialnetwork_id, "****",followers )
     followers = 0 if pd.isna(followers) else max(0, float(followers))
     publications = 0 if pd.isna(publications) else max(0, float(publications))
     reactions = 0 if pd.isna(reactions) else max(0, float(reactions))
@@ -426,10 +426,7 @@ def procesar_datos_excel(request):
             
             # Leer datos de la pestaña
             df = pd.read_excel(xls, sheet_name=nombre_pestana, skiprows=1)
-            # print("\nDatos de la pestaña:")
-            # print(tabulate(df, headers='keys', tablefmt='psql'))
-            last_period = datetime.strptime("2024-06", '%Y-%m')
-            print(last_period, "/*/*/*/*/*/*/*")
+    
             for index, row in df.iterrows():
 
                 name_institution = row.iloc[0]
@@ -462,23 +459,22 @@ def procesar_datos_excel(request):
                 # for instagram
                 create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 4)
                 
-                if (fecha_recoleccion == last_period):
-                    print("gets stats from youtube platform", fecha_recoleccion)
-                    stats_youtube = get_channel_stats_youtube(channel_youtube)
-                    create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
-                else:
-                    print("gets stats from excel file", fecha_recoleccion)
-                    followers_yt = row.iloc[13]
-                    publications_yt = row.iloc[14]
-                    interactions_yt = row.iloc[15]
-                    create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id,id_type_institution, 5)
+                # obtiene las estadisticas de la api de youtube si se especifica el user en el file de excel
+                #stats_youtube = get_channel_stats_youtube(channel_youtube)
+                #create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
+
+                print("gets stats from excel file", fecha_recoleccion)
+                followers_yt = row.iloc[13]
+                publications_yt = row.iloc[14]
+                interactions_yt = row.iloc[15]
+                create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id,id_type_institution, 5)
 
                 followers_tiktok = row.iloc[16]    
                 publications_tiktok = row.iloc[17]    
                 interactions_tiktok = row.iloc[18]  
 
                 # for tiktok
-                create_metrics_from_excel(followers_instagram, publications_instagram, interactions_instagram, fecha_recoleccion, institution_id,id_type_institution, 7)
+                create_metrics_from_excel(followers_tiktok, publications_tiktok, interactions_tiktok, fecha_recoleccion, institution_id,id_type_institution, 7)
 
                 print(f"Índice: {index}")
                 print(f"Institución: {name_institution}")
@@ -493,9 +489,9 @@ def procesar_datos_excel(request):
                 print(f"Followers Instagram: {followers_instagram}")
                 print(f"Publications Instagram: {publications_instagram}")
                 print(f"Interactions Instagram: {interactions_instagram}")
-                # print(f"Followers YouTube: {followers_yt}")
-                # print(f"Publications YouTube: {publications_yt}")
-                # print(f"Interactions YouTube: {interactions_yt}")
+                print(f"Followers YouTube: {followers_yt}")
+                print(f"Publications YouTube: {publications_yt}")
+                print(f"Interactions YouTube: {interactions_yt}")
                 print(f"Followers TikTok: {followers_tiktok}")
                 print(f"Publications TikTok: {publications_tiktok}")
                 print(f"Interactions TikTok: {interactions_tiktok}")
