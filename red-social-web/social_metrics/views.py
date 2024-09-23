@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
 from django.db.models import Q, F, Prefetch
 from django.core.serializers import serialize
+from django.core.serializers.json import DjangoJSONEncoder
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.conf import settings
 from collections import defaultdict
@@ -168,7 +169,7 @@ def create_institution(request):
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
 
-def list_categories(request):
+def list_intitutions_by_type(request):
     category = request.query_params.get('category')
     try:
         # Obtener todas las instituciones
@@ -188,7 +189,72 @@ def list_categories(request):
 @api_view(['GET','POST'])
 def manage_institutions(request):
     if request.method == 'GET':
-        return list_categories(request)
+        # return list_intitutions_by_type(request)
+        return list_institutions_for_type_and_date(request)
+    elif request.method == 'POST':
+        return create_institution(request)
+
+def dates_collections(request):
+    try:
+        unique_dates = (
+            BaseMetrics.objects
+            .values('date_collection')
+            .annotate(date=F('date_collection'))
+            .values('date')
+            .distinct()
+            .order_by('-date')
+        )
+        # Para ver los resultados
+        for date_entry in unique_dates:
+            print(date_entry['date'])
+        dates = list(unique_dates)
+        return JsonResponse(dates, safe=False, encoder=DjangoJSONEncoder)
+
+    except Exception as e:
+        print(e)
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def list_institutions_for_category_and_date(request):
+    category = request.query_params.get('category')
+    stats_date = request.query_params.get('stats_date')
+    try:
+        # Se obtienen los tipos de institucion por categoria
+        type_institutions = TypeInstitution.objects.filter(category=category)
+        # Se obtienen todas las instituciones por categoria y fecha 
+        results = (
+            Institution.objects
+            .filter(
+                type_institution__category = category,
+                basemetrics__date_collection = stats_date
+            )
+            .annotate(
+                category = F('type_institution__category'),
+                date_collection= F('basemetrics__date_collection')
+            )
+            .values('name', 'type_institution_id', 'category', 'date_collection')
+            .distinct()
+        )
+        total_institutions = results.count()
+        print(total_institutions,'-------')
+        for result in results:
+            print(result)
+
+        data = list(results)
+
+        return JsonResponse(data, safe=False, encoder=DjangoJSONEncoder)
+    except Exception as e:
+        print(e)
+        return Response({
+            "error": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET','POST'])
+def manage_institutions_oks(request):
+    if request.method == 'GET':
+        return list_institutions_for_type_and_date(request)
     elif request.method == 'POST':
         return create_institution(request)
 
