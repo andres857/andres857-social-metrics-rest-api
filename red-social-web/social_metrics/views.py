@@ -8,7 +8,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
-from django.db.models import Q, F, Prefetch
+from django.db.models import Q, F, Count
 from django.core.serializers import serialize
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -220,37 +220,55 @@ def dates_collections(request):
 def list_institutions_for_category_and_date(request):
     category = request.query_params.get('category')
     stats_date = request.query_params.get('stats_date')
+
+    if not category or not stats_date:
+        return Response({
+            "error": "Both category and stats_date are required."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        # Se obtienen los tipos de institucion por categoria
-        type_institutions = TypeInstitution.objects.filter(category=category)
-        # Se obtienen todas las instituciones por categoria y fecha 
         results = (
-            Institution.objects
-            .filter(
-                type_institution__category = category,
-                basemetrics__date_collection = stats_date
-            )
+            TypeInstitution.objects
+            .filter(category=category)
             .annotate(
-                category = F('type_institution__category'),
-                date_collection= F('basemetrics__date_collection')
+                calculated_institution_count=Count(
+                    'institution',
+                    filter=Q(institution__basemetrics__date_collection=stats_date),
+                    distinct=True
+                ),
+                date_collection=F('institution__basemetrics__date_collection')
             )
-            .values('name', 'type_institution_id', 'category', 'date_collection')
-            .distinct()
+            .filter(institution__basemetrics__date_collection=stats_date)
+            .values('id', 'name', 'category', 'date_collection', 'calculated_institution_count')
+            .order_by('id')
         )
-        total_institutions = results.count()
-        print(total_institutions,'-------')
-        for result in results:
-            print(result)
 
         data = list(results)
+        # Procesar los datos para obtener un objeto por tipo de institución
+        processed_data = process_institution_data(data)
+        return JsonResponse(processed_data, safe=False, encoder=DjangoJSONEncoder)
 
-        return JsonResponse(data, safe=False, encoder=DjangoJSONEncoder)
     except Exception as e:
-        print(e)
         return Response({
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-
+    
+def process_institution_data(data):
+    processed = {}
+    for item in data:
+        institution_id = item['id']
+        if institution_id not in processed:
+            processed[institution_id] = item
+        else:
+            # Si ya existe, actualizar solo si la fecha es más reciente
+            if item['date_collection'] > processed[institution_id]['date_collection']:
+                processed[institution_id] = item
+            # Si las fechas son iguales, sumar el conteo
+            elif item['date_collection'] == processed[institution_id]['date_collection']:
+                processed[institution_id]['calculated_institution_count'] += item['calculated_institution_count']
+    
+    return list(processed.values())
+    
 @api_view(['GET','POST'])
 def manage_institutions_oks(request):
     if request.method == 'GET':
