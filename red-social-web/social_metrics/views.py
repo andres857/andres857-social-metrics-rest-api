@@ -239,11 +239,12 @@ def list_institutions_for_category_and_date(request):
                 date_collection=F('institution__basemetrics__date_collection')
             )
             .filter(institution__basemetrics__date_collection=stats_date)
-            .values('id', 'name', 'category', 'date_collection', 'calculated_institution_count')
+            .values('id', 'name', 'url', 'ordering', 'category', 'date_collection', 'institution_count')
             .order_by('id')
         )
 
         data = list(results)
+        print(data)
         # Procesar los datos para obtener un objeto por tipo de institución
         processed_data = process_institution_data(data)
         return JsonResponse(processed_data, safe=False, encoder=DjangoJSONEncoder)
@@ -265,7 +266,7 @@ def process_institution_data(data):
                 processed[institution_id] = item
             # Si las fechas son iguales, sumar el conteo
             elif item['date_collection'] == processed[institution_id]['date_collection']:
-                processed[institution_id]['calculated_institution_count'] += item['calculated_institution_count']
+                processed[institution_id]['institution_count'] += item['institution_count']
     
     return list(processed.values())
     
