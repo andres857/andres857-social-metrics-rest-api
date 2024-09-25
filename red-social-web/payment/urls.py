@@ -8,4 +8,5 @@ urlpatterns = [
     path('create-subscription/', views.create_preference, name='create_subscription'),
     path('success/', views.payment_success, name='payment_success'),
     path('api/mercadopago/webhook/', views.mercadopago_webhook, name='mercadopago_webhook'),
+    path('get/pricing/', views.pricing, name='get_pricing'),
 ]

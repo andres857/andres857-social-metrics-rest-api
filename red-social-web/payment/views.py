@@ -2,11 +2,13 @@ import os
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
+from rest_framework.response import Response
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
+from rest_framework.decorators import api_view
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
@@ -21,7 +23,7 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 
-from .models import Subscription
+from .models import Subscription, SubscriptionPlan
 
 # Mercado Pago SDK
 import mercadopago
@@ -41,34 +43,24 @@ def create_preference(request):
 
     try:
         data = json.loads(request.body)
-        plan = data.get('plan')
+        plan_name = data.get('plan')
         user_id = data.get('user_id')
 
-        logger.info(f"Creando preferencia para usuario {user_id} con plan {plan}")
+        logger.info(f"Creando preferencia para usuario {user_id} con plan {plan_name}")
 
-        if not all([plan, user_id]):
+        if not all([plan_name, user_id]):
             return JsonResponse({"error": "Se requieren plan y user_id"}, status=400)
 
         user = get_object_or_404(User, id=user_id)
-
-        if plan == 'monthly':
-            price = 2000
-            description = "Suscripción mensual"
-            duration = relativedelta(months=1)
-        elif plan == 'yearly':
-            price = 24000
-            description = "Suscripción anual"
-            duration = relativedelta(years=1)
-        else:
-            return JsonResponse({"error": "Plan no válido"}, status=400)
+        plan = get_object_or_404(SubscriptionPlan, name=plan_name)
 
         preference_data = {
             "items": [
                 {
-                    "title": description,
+                    "title": plan.description,
                     "quantity": 1,
                     "currency_id": "COP",
-                    "unit_price": price
+                    "unit_price": float(plan.price)
                 }
             ],
             "payer": {
@@ -82,7 +74,6 @@ def create_preference(request):
                 "pending": f"{settings.BASE_URL}/payment/pending/"
             },
             "auto_return": "approved",
-            #"notification_url": f"{settings.BASE_URL}/payment/api/mercadopago/webhook/?source_news=webhooks",
             "statement_descriptor": "Redes Sociales Colombia",
             "external_reference": str(user.id),
         }
@@ -109,7 +100,7 @@ def create_preference(request):
 
         # Crear o actualizar la suscripción
         start_date = timezone.now()
-        end_date = start_date + duration
+        end_date = start_date + relativedelta(days=plan.duration_days)
 
         subscription, created = Subscription.objects.update_or_create(
             user=user,
@@ -120,7 +111,7 @@ def create_preference(request):
                 'end_date': end_date,
                 'preference_id': preference['id'],
                 'site_id': preference.get('site_id'),
-                'processing_mode': 'aggregator',  # Asumiendo que siempre es 'aggregator' basado en la URL de retorno
+                'processing_mode': 'aggregator',
             }
         )
 
@@ -144,55 +135,43 @@ def create_preference(request):
 @require_GET
 def payment_success(request):
     # Obtener parámetros de la URL
-    collection_id = request.GET.get('collection_id')
-    collection_status = request.GET.get('collection_status')
-    payment_id = request.GET.get('payment_id')
-    status = request.GET.get('status')
-    external_reference = request.GET.get('external_reference')
-    payment_type = request.GET.get('payment_type')
-    merchant_order_id = request.GET.get('merchant_order_id')
-    preference_id = request.GET.get('preference_id')
-    site_id = request.GET.get('site_id')
-    processing_mode = request.GET.get('processing_mode')
-    merchant_account_id = request.GET.get('merchant_account_id')
+    payment_data = {
+        'collection_id': request.GET.get('collection_id'),
+        'collection_status': request.GET.get('collection_status'),
+        'payment_id': request.GET.get('payment_id'),
+        'status': request.GET.get('status'),
+        'external_reference': request.GET.get('external_reference'),
+        'payment_type': request.GET.get('payment_type'),
+        'merchant_order_id': request.GET.get('merchant_order_id'),
+        'preference_id': request.GET.get('preference_id'),
+        'site_id': request.GET.get('site_id'),
+        'processing_mode': request.GET.get('processing_mode'),
+        'merchant_account_id': request.GET.get('merchant_account_id'),
+    }
 
-    if not all([collection_id, status, external_reference, payment_id]):
+    if not all([payment_data['collection_id'], payment_data['status'], payment_data['external_reference'], payment_data['payment_id']]):
         return HttpResponseBadRequest("Parámetros faltantes en la URL")
 
-    if status != 'approved':
-        logger.warning(f"Pago no aprobado. Estado: {status}")
+    if payment_data['status'] != 'approved':
+        logger.warning(f"Pago no aprobado. Estado: {payment_data['status']}")
         return render(request, 'payment_error.html', {'error': 'El pago no fue aprobado'})
 
     try:
-        user = get_object_or_404(User, id=external_reference)
+        user = get_object_or_404(User, id=payment_data['external_reference'])
         subscription = get_object_or_404(Subscription, user=user, active=False)
 
         # Actualizar el estado de la suscripción
         subscription.active = True
         subscription.start_date = timezone.now()
-        
-        # Calcular la fecha de finalización basada en el plan
-        if subscription.plan == 'monthly':
-            subscription.end_date = subscription.start_date + timezone.timedelta(days=30)
-        elif subscription.plan == 'yearly':
-            subscription.end_date = subscription.start_date + timezone.timedelta(days=365)
+        subscription.end_date = subscription.start_date + relativedelta(days=subscription.plan.duration_days)
         
         # Actualizar campos adicionales
-        subscription.collection_id = collection_id
-        subscription.collection_status = collection_status
-        subscription.payment_id = payment_id
-        subscription.status = status
-        subscription.external_reference = external_reference
-        subscription.payment_type = payment_type
-        subscription.merchant_order_id = merchant_order_id
-        subscription.preference_id = preference_id
-        subscription.site_id = site_id
-        subscription.processing_mode = processing_mode
-        subscription.merchant_account_id = merchant_account_id
+        for key, value in payment_data.items():
+            setattr(subscription, key, value)
 
         subscription.save()
 
-        logger.info(f"Suscripción activada para el usuario {user.id}. Plan: {subscription.plan}, Válida hasta: {subscription.end_date}")
+        logger.info(f"Suscripción activada para el usuario {user.id}. Plan: {subscription.plan.name}, Válida hasta: {subscription.end_date}")
 
         return render(request, 'payment_success.html', {
             'user': user,
@@ -200,13 +179,17 @@ def payment_success(request):
         })
 
     except Subscription.DoesNotExist:
-        logger.error(f"No se encontró una suscripción inactiva para el usuario {external_reference}")
+        logger.error(f"No se encontró una suscripción inactiva para el usuario {payment_data['external_reference']}")
         return render(request, 'payment_error.html', {'error': 'No se encontró una suscripción válida'})
     except Exception as e:
         logger.error(f"Error al procesar el pago exitoso: {str(e)}")
         return render(request, 'payment_error.html', {'error': 'Ocurrió un error al procesar el pago'})
 
 
+@api_view(['GET'])
+def pricing(request):
+    plans = SubscriptionPlan.objects.all().values('name', 'description', 'price', 'duration_days')
+    return Response(list(plans))
 
 @csrf_exempt
 @require_POST

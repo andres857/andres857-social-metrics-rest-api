@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.shortcuts import redirect
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -21,6 +21,8 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
+
+from payment.models import Subscription, SubscriptionPlan
 
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
@@ -347,12 +349,27 @@ class CustomLogoutView(LogoutView):
         auth_logout(self.request)
 
 # Validacion de Session
-@require_http_methods(["GET"])
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def auth_status(request):
-    return JsonResponse({
-        'is_authenticated': request.user.is_authenticated
+    subscription_info = {}
+
+    try:
+        subscription = Subscription.objects.get(user=request.user, active=True)
+        subscription_info = {
+            'plan': subscription.plan.name if subscription.plan else None,
+            'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+            'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+        }
+    except Subscription.DoesNotExist:
+        subscription_info = None
+
+    return Response({
+        'is_authenticated': True,
+        'subscription': subscription_info,
     })
-        
+
 @login_required
 @require_http_methods(["GET"])
 def user_profile(request):
