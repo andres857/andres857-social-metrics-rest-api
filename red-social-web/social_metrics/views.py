@@ -244,16 +244,16 @@ def list_institutions_for_category_and_date(request):
         )
 
         data = list(results)
-        print(data)
         # Procesar los datos para obtener un objeto por tipo de institución
         processed_data = process_institution_data(data)
-        return JsonResponse(processed_data, safe=False, encoder=DjangoJSONEncoder)
 
+        return JsonResponse(processed_data, safe=False, encoder=DjangoJSONEncoder)
+    
     except Exception as e:
         return Response({
             "error": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
-    
+
 def process_institution_data(data):
     processed = {}
     for item in data:

@@ -13,7 +13,6 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL') # backend url
 print("FRONTEND_URL", FRONTEND_URL)
 print("BASE_URL", BASE_URL)
 
-
 GOOGLE_CALLBACK_URL = f"{BASE_URL}/auth/google/callback/"
 LINKEDIN_CALLBACK_URL = f"{BASE_URL}/auth/linkedin/callback/"
 SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = f"{FRONTEND_URL}/auth/google/callback/"
@@ -63,10 +62,21 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
+CORS_ALLOW_HEADERS = [
+    'authorization',
+    'content-type',
+    'x-requested-with',
+    'accept',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'accept-encoding',
+]
+
 # Permite solicitudes desde tu frontend
 CORS_ALLOWED_ORIGINS = [
-    # URL del frontend
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://5.161.74.174:3000",
     "https://stats.colombiaredessociales.com"
 ]
@@ -74,7 +84,8 @@ CORS_ALLOWED_ORIGINS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
-    "http://5.161.74.174:3000"
+    "http://5.161.74.174:3000",
+    "https://stats.colombiaredessociales.com"
 ]
 
 # permitir credenciales (cookies, headers de autorización)
