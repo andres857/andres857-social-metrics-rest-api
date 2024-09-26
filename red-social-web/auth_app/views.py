@@ -351,24 +351,29 @@ class CustomLogoutView(LogoutView):
 # Validacion de Session
 @csrf_exempt
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def auth_status(request):
-    subscription_info = {}
-
-    try:
-        subscription = Subscription.objects.get(user=request.user, active=True)
-        subscription_info = {
-            'plan': subscription.plan.name if subscription.plan else None,
-            'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
-            'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
-        }
-    except Subscription.DoesNotExist:
+    if request.user.is_authenticated:
         subscription_info = None
+        try:
+            subscription = Subscription.objects.get(user=request.user, active=True)
+            subscription_info = {
+                'plan': subscription.plan.name if subscription.plan else None,
+                'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+                'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+            }
+        except Subscription.DoesNotExist:
+            pass
 
-    return Response({
-        'is_authenticated': True,
-        'subscription': subscription_info,
-    })
+        return Response({
+            'is_authenticated': True,
+            'subscription': subscription_info,
+        })
+    else:
+        return Response({
+            'is_authenticated': False,
+            'subscription': None,
+        })
 
 @login_required
 @require_http_methods(["GET"])

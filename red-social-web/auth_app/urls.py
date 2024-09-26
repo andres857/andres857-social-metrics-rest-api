@@ -14,6 +14,6 @@ urlpatterns = [
     path('user/profile/', update_profile, name='update_profile'),
     path('user/change-password/', change_password, name='change_password'),
     
-    #Validacion de autentificacion
+    #Validacion de autentificacion y suscripcion
     path('auth-status/', auth_status, name='auth-status'),
 ]
