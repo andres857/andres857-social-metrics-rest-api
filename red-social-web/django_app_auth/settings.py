@@ -85,7 +85,8 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://5.161.74.174:3000",
-    "https://stats.colombiaredessociales.com"
+    "https://stats.colombiaredessociales.com",
+    "https://api-stats.colombiaredessociales.com"
 ]
 
 # permitir credenciales (cookies, headers de autorización)
