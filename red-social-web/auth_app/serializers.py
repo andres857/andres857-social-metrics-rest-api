@@ -3,6 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from allauth.account.models import EmailAddress
 
+from users.models import UserRole, Role
+
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
@@ -12,12 +14,13 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'password', 'password2', 'first_name', 'last_name', 'identification',
-                  'phone')
+                  'phone', 'organization')
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
             'identification': {'required': True},
-            'email': {'required': True}
+            'email': {'required': True},
+            'organization': {'required': False}
         }
 
     def validate(self, attrs):
@@ -36,5 +39,9 @@ class UserSerializer(serializers.ModelSerializer):
             verified=False,
             primary=True
         )
+        
+        # Asignar el rol "general_user"
+        general_user_role = Role.objects.get(identifier='=805MHj0')
+        UserRole.objects.create(user=user, role=general_user_role)
         
         return user

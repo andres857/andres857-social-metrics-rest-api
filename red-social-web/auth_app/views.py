@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.shortcuts import redirect
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -21,6 +21,8 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
+
+from payment.models import Subscription, SubscriptionPlan
 
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
@@ -45,6 +47,11 @@ from django.utils.encoding import force_str
 from django.core.exceptions import ValidationError
 import logging
 import json
+
+import requests
+from io import BytesIO
+
+from django.core.files.base import ContentFile
 
 
 def custom_404(request, exception):
@@ -100,7 +107,7 @@ def linkedin_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
-            return redirect(f"{settings.FRONTEND_URL}/Principal/main")
+            return redirect(f"{settings.FRONTEND_URL}/salud")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
     except Exception as e:
@@ -137,11 +144,43 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 username=sociallogin.account.extra_data.get('email').split('@')[0],
                 first_name=sociallogin.account.extra_data.get('given_name'),
                 last_name=sociallogin.account.extra_data.get('family_name'),
+                organization=sociallogin.account.extra_data.get('organization', '')
             )
+
+            # Obtener y guardar la foto de perfil
+            picture_url = sociallogin.account.extra_data.get('picture')
+            if picture_url:
+                response = requests.get(picture_url)
+                if response.status_code == 200:
+                    img_temp = BytesIO(response.content)
+                    user.photoprofile_path.save(f"{user.username}_profile.jpg", ContentFile(img_temp.getvalue()), save=False)
+
             user.save()
+
+            print(user)
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
+
+        else:
+            # Si el usuario ya existe, actualizamos la información si es necesario
+            update_fields = []
+            if 'organization' in sociallogin.account.extra_data:
+                user.organization = sociallogin.account.extra_data['organization']
+                update_fields.append('organization')
+            
+            # Actualizar la foto de perfil si ha cambiado
+            picture_url = sociallogin.account.extra_data.get('picture')
+            if picture_url and user.photoprofile_path.name == '':
+                response = requests.get(picture_url)
+                if response.status_code == 200:
+                    img_temp = BytesIO(response.content)
+                    user.photoprofile_path.save(f"{user.username}_profile.jpg", ContentFile(img_temp.getvalue()), save=False)
+                    update_fields.append('photoprofile_path')
+            
+            if update_fields:
+                user.save(update_fields=update_fields)
+        return None
 
 @api_view(['GET'])
 def google_callback(request):
@@ -310,12 +349,32 @@ class CustomLogoutView(LogoutView):
         auth_logout(self.request)
 
 # Validacion de Session
-@require_http_methods(["GET"])
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def auth_status(request):
-    return JsonResponse({
-        'is_authenticated': request.user.is_authenticated
-    })
-        
+    if request.user.is_authenticated:
+        subscription_info = None
+        try:
+            subscription = Subscription.objects.get(user=request.user, active=True)
+            subscription_info = {
+                'plan': subscription.plan.name if subscription.plan else None,
+                'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+                'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+            }
+        except Subscription.DoesNotExist:
+            pass
+
+        return Response({
+            'is_authenticated': True,
+            'subscription': subscription_info,
+        })
+    else:
+        return Response({
+            'is_authenticated': False,
+            'subscription': None,
+        })
+
 @login_required
 @require_http_methods(["GET"])
 def user_profile(request):
@@ -341,7 +400,8 @@ def user_detail(request):
         'is_active': user.is_active,
         'date_joined': user.date_joined.isoformat(),
         'last_login': user.last_login.isoformat() if user.last_login else None,
-        'profile_picture': user.profile.picture_url if hasattr(user, 'profile') else None,
+        'profile_picture': user.profile_picture if hasattr(user, 'profile') else None,
+        'organization': user.organization if hasattr(user, 'organization') else None,
         # Añadir cualquier otro campo que se necesite
     })
     
