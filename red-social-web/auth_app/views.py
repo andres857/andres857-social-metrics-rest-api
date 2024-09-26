@@ -23,6 +23,7 @@ from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
 
 from payment.models import Subscription, SubscriptionPlan
+from users.models import UserRole
 
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.utils import send_email_confirmation
@@ -355,24 +356,30 @@ class CustomLogoutView(LogoutView):
 def auth_status(request):
     if request.user.is_authenticated:
         subscription_info = None
+        user_role = None
         try:
             subscription = Subscription.objects.get(user=request.user, active=True)
+            role = Subscription.objects.get(user=request.user, active=True)
             subscription_info = {
                 'plan': subscription.plan.name if subscription.plan else None,
                 'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
                 'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
             }
+            rol_user = UserRole.objects.get(user=request.user)
+            user_role = rol_user.role_id
         except Subscription.DoesNotExist:
             pass
 
         return Response({
             'is_authenticated': True,
             'subscription': subscription_info,
+            'user_role': user_role,
         })
     else:
         return Response({
             'is_authenticated': False,
             'subscription': None,
+            'user_role': None,
         })
 
 @login_required
