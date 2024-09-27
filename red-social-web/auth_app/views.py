@@ -21,6 +21,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
+from django.views.generic import View
 
 from payment.models import Subscription, SubscriptionPlan
 from users.models import UserRole
@@ -331,11 +332,11 @@ class CustomRegisterView(APIView):
             "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(csrf_protect, name='dispatch')
-class CustomLogoutView(LogoutView):
-    def post(self, *args, **kwargs):
-        if self.request.user.is_authenticated:
-            self.logout()
+@method_decorator(csrf_exempt, name='dispatch')  # Usa esto con precaución
+class CustomLogoutView(View):
+    def post(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            auth_logout(request)
             return JsonResponse({
                 'success': True,
                 'message': 'Logout exitoso'
@@ -345,9 +346,6 @@ class CustomLogoutView(LogoutView):
                 'success': False,
                 'message': 'No hay usuario autenticado'
             }, status=400)
-
-    def logout(self):
-        auth_logout(self.request)
 
 # Validacion de Session
 @csrf_exempt
