@@ -366,6 +366,7 @@ def auth_status(request):
         subscriptions_info = []
         user_role = None
         try:
+            # Use filter() instead of get() to handle multiple subscriptions
             subscriptions = Subscription.objects.filter(user=request.user, active=True)
             for subscription in subscriptions:
                 subscriptions_info.append({
@@ -374,13 +375,11 @@ def auth_status(request):
                     'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
                 })
             
-            try:
-                user_role_obj = UserRole.objects.filter(user=request.user).first()
-                user_role = user_role_obj.role_id if user_role_obj else None
-            except Exception as e:
-                print(f"Error retrieving user role: {str(e)}")
+            # Use filter().first() instead of get() to avoid MultipleObjectsReturned
+            user_role_obj = UserRole.objects.filter(user=request.user).first()
+            user_role = user_role_obj.role_id if user_role_obj else None
         except Exception as e:
-            print(f"Error retrieving subscriptions: {str(e)}")
+            print(f"Error retrieving user data: {str(e)}")
         
         return Response({
             'is_authenticated': True,
