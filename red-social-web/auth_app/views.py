@@ -363,30 +363,35 @@ class CustomLogoutView(View):
 @permission_classes([AllowAny])
 def auth_status(request):
     if request.user.is_authenticated:
-        subscription_info = None
+        subscriptions_info = []
         user_role = None
         try:
-            subscription = Subscription.objects.get(user=request.user, active=True)
-            role = Subscription.objects.get(user=request.user, active=True)
-            subscription_info = {
-                'plan': subscription.plan.name if subscription.plan else None,
-                'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
-                'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
-            }
-            rol_user = UserRole.objects.get(user=request.user)
-            user_role = rol_user.role_id
-        except Subscription.DoesNotExist:
-            pass
+            subscriptions = Subscription.objects.filter(user=request.user, active=True)
+            for subscription in subscriptions:
+                subscriptions_info.append({
+                    'plan': subscription.plan.name if subscription.plan else None,
+                    'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+                    'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+                })
+            
+            try:
+                rol_user = UserRole.objects.get(user=request.user)
+                user_role = rol_user.role_id
+            except UserRole.DoesNotExist:
+                pass
+
+        except Exception as e:
+            print(f"Error retrieving subscriptions: {str(e)}")
 
         return Response({
             'is_authenticated': True,
-            'subscription': subscription_info,
+            'subscriptions': subscriptions_info,
             'user_role': user_role,
         })
     else:
         return Response({
             'is_authenticated': False,
-            'subscription': None,
+            'subscriptions': None,
             'user_role': None,
         })
 
