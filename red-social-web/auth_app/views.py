@@ -332,6 +332,7 @@ class CustomRegisterView(APIView):
             "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomLogoutView(View):
     def post(self, request, *args, **kwargs):
         if request.user.is_authenticated:
