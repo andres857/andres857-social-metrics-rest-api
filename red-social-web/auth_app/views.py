@@ -23,6 +23,8 @@ from django.views.decorators.csrf import csrf_protect
 from .serializers import UserSerializer
 from django.views.generic import View
 
+from users.models import UserRole, Role
+
 from payment.models import Subscription, SubscriptionPlan
 from users.models import UserRole
 
@@ -160,6 +162,9 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             user.save()
 
             print(user)
+            
+            general_user_role = Role.objects.get(identifier='=805MHj0')
+            UserRole.objects.create(user=user, role=general_user_role)
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
@@ -182,6 +187,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             
             if update_fields:
                 user.save(update_fields=update_fields)
+                
+            if not UserRole.objects.filter(user=user).exists():
+                general_user_role = Role.objects.get(identifier='=805MHj0')
+                UserRole.objects.create(user=user, role=general_user_role)
+                
         return None
 
 @api_view(['GET'])
