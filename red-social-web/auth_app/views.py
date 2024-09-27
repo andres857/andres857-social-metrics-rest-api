@@ -375,14 +375,13 @@ def auth_status(request):
                 })
             
             try:
-                rol_user = UserRole.objects.get(user=request.user)
-                user_role = rol_user.role_id
-            except UserRole.DoesNotExist:
-                pass
-
+                user_role_obj = UserRole.objects.filter(user=request.user).first()
+                user_role = user_role_obj.role_id if user_role_obj else None
+            except Exception as e:
+                print(f"Error retrieving user role: {str(e)}")
         except Exception as e:
             print(f"Error retrieving subscriptions: {str(e)}")
-
+        
         return Response({
             'is_authenticated': True,
             'subscriptions': subscriptions_info,
