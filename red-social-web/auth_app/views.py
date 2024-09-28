@@ -50,6 +50,7 @@ from django.utils.encoding import force_str
 
 from django.core.exceptions import ValidationError
 import logging
+from django.utils import timezone
 import json
 
 import requests
@@ -357,36 +358,50 @@ class CustomLogoutView(View):
                 'message': 'No hay usuario autenticado'
             }, status=400)
 
-# Validacion de Session
+
 @csrf_exempt
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_status(request):
+    logger.info(f"auth_status called for user: {request.user}")
     if request.user.is_authenticated:
         subscriptions_info = []
         user_role = None
         try:
-            # Use filter() instead of get() to handle multiple subscriptions
-            subscriptions = Subscription.objects.filter(user=request.user, active=True)
+            logger.info("Fetching active subscriptions")
+            # Filter active subscriptions and order by end_date
+            subscriptions = Subscription.objects.filter(
+                user=request.user,
+                active=True,
+                end_date__gt=timezone.now()
+            ).order_by('-end_date')
+            
+            logger.info(f"Found {subscriptions.count()} active subscriptions")
             for subscription in subscriptions:
                 subscriptions_info.append({
                     'plan': subscription.plan.name if subscription.plan else None,
                     'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
                     'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+                    'status': subscription.status,
+                    'payment_type': subscription.payment_type,
                 })
             
-            # Use filter().first() instead of get() to avoid MultipleObjectsReturned
+            logger.info("Fetching user role")
             user_role_obj = UserRole.objects.filter(user=request.user).first()
             user_role = user_role_obj.role_id if user_role_obj else None
+            logger.info(f"User role: {user_role}")
         except Exception as e:
-            print(f"Error retrieving user data: {str(e)}")
+            logger.error(f"Error retrieving user data: {str(e)}", exc_info=True)
         
-        return Response({
+        response_data = {
             'is_authenticated': True,
             'subscriptions': subscriptions_info,
             'user_role': user_role,
-        })
+        }
+        logger.info(f"Returning response: {response_data}")
+        return Response(response_data)
     else:
+        logger.info("User is not authenticated")
         return Response({
             'is_authenticated': False,
             'subscriptions': None,
