@@ -1,11 +1,10 @@
 services:
-  api: 
+  api:
     build:
       context: red-social-web
       dockerfile: Dockerfile
     restart: unless-stopped
-    # command: python manage.py runserver 0.0.0.0:8000
-    command: gunicorn --timeout 300 --bind 0.0.0.0:8000 django_app_auth.wsgi:application
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./red-social-web:/app
     environment:
@@ -14,26 +13,15 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
-      - MEI_TOKEN=${MEI_TOKEN}
       - DATABASE_URL=mysql://${DB_USERNAME}:${DB_PASSWORD}@db:3312/${DB_DATABASE}
-      - VIRTUAL_HOST=api-stats.colombiaredessociales.com
-      - LETSENCRYPT_HOST=api-stats.colombiaredessociales.com
-      - LETSENCRYPT_EMAIL=info@windowschannel.com
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - MEI_TOKEN=${MEI_TOKEN}
       - BASE_URL=${BASE_URL}
       - FRONTEND_URL=${FRONTEND_URL}
-    expose:
-      - '8000'
+    ports: 
+      - '8000:8000'
     networks:
       - app-network
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: '0.50'
-    #       memory: 512M
-    #     reservations:
-    #       cpus: '0.25'
-    #       memory: 256M
 
 networks:
   app-network:
