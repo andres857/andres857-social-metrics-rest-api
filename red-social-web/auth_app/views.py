@@ -50,6 +50,7 @@ from django.utils.encoding import force_str
 
 from django.core.exceptions import ValidationError
 import logging
+from django.utils import timezone
 import json
 
 import requests
@@ -357,36 +358,53 @@ class CustomLogoutView(View):
                 'message': 'No hay usuario autenticado'
             }, status=400)
 
-# Validacion de Session
+
 @csrf_exempt
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def auth_status(request):
+    logger.info(f"auth_status called for user: {request.user}")
     if request.user.is_authenticated:
-        subscription_info = None
+        subscriptions_info = []
         user_role = None
         try:
-            subscription = Subscription.objects.get(user=request.user, active=True)
-            role = Subscription.objects.get(user=request.user, active=True)
-            subscription_info = {
-                'plan': subscription.plan.name if subscription.plan else None,
-                'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
-                'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
-            }
-            rol_user = UserRole.objects.get(user=request.user)
-            user_role = rol_user.role_id
-        except Subscription.DoesNotExist:
-            pass
-
-        return Response({
+            logger.info("Fetching active subscriptions")
+            # Filter active subscriptions and order by end_date
+            subscriptions = Subscription.objects.filter(
+                user=request.user,
+                active=True,
+                end_date__gt=timezone.now()
+            ).order_by('-end_date')
+            
+            logger.info(f"Found {subscriptions.count()} active subscriptions")
+            for subscription in subscriptions:
+                subscriptions_info.append({
+                    'plan': subscription.plan.name if subscription.plan else None,
+                    'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+                    'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+                    'status': subscription.status,
+                    'payment_type': subscription.payment_type,
+                })
+            
+            logger.info("Fetching user role")
+            user_role_obj = UserRole.objects.filter(user=request.user).first()
+            user_role = user_role_obj.role_id if user_role_obj else None
+            logger.info(f"User role: {user_role}")
+        except Exception as e:
+            logger.error(f"Error retrieving user data: {str(e)}", exc_info=True)
+        
+        response_data = {
             'is_authenticated': True,
-            'subscription': subscription_info,
+            'subscriptions': subscriptions_info,
             'user_role': user_role,
-        })
+        }
+        logger.info(f"Returning response: {response_data}")
+        return Response(response_data)
     else:
+        logger.info("User is not authenticated")
         return Response({
             'is_authenticated': False,
-            'subscription': None,
+            'subscriptions': None,
             'user_role': None,
         })
 
