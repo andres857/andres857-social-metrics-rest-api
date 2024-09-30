@@ -424,6 +424,24 @@ def user_profile(request):
 @require_http_methods(["GET"])
 def user_detail(request):
     user = request.user
+    
+    subscriptions_info = []
+    # Filter active subscriptions and order by end_date
+    subscriptions = Subscription.objects.filter(
+                user=request.user,
+                active=True,
+                end_date__gt=timezone.now()
+            ).order_by('-end_date')
+            
+    for subscription in subscriptions:
+        subscriptions_info.append({
+            'plan': subscription.plan.name if subscription.plan else None,
+            'start_date': subscription.start_date.isoformat() if subscription.start_date else None,
+            'end_date': subscription.end_date.isoformat() if subscription.end_date else None,
+            'status': subscription.status,
+            'payment_type': subscription.payment_type,
+        })
+    
     return JsonResponse({
         'id': user.id,
         'email': user.email,
@@ -435,6 +453,7 @@ def user_detail(request):
         'last_login': user.last_login.isoformat() if user.last_login else None,
         'profile_picture': user.profile_picture if hasattr(user, 'profile') else None,
         'organization': user.organization if hasattr(user, 'organization') else None,
+        'subscriptions_info': subscriptions_info
         # Añadir cualquier otro campo que se necesite
     })
     
@@ -450,6 +469,7 @@ def update_profile(request):
     user.first_name = data.get('first_name', user.first_name)
     user.last_name = data.get('last_name', user.last_name)
     user.email = data.get('email', user.email)
+    user.organization = data.get('organization', user.organization)
     
     try:
         user.full_clean()  # Valida los campos del usuario
