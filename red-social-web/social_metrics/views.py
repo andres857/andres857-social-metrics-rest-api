@@ -4,11 +4,13 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
+from django.db import connection
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction, IntegrityError
 from django.db.models import Q, F, Count
+from django.db.models.functions import TruncDate
 from django.core.serializers import serialize
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -227,32 +229,54 @@ def list_institutions_for_category_and_date(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        results = (
-            TypeInstitution.objects
-            .filter(category=category)
-            .annotate(
-                calculated_institution_count=Count(
-                    'institution',
-                    filter=Q(institution__basemetrics__date_collection=stats_date),
-                    distinct=True
-                ),
-                date_collection=F('institution__basemetrics__date_collection')
-            )
-            .filter(institution__basemetrics__date_collection=stats_date)
-            .values('id', 'name', 'url', 'ordering', 'category', 'date_collection', 'institution_count')
-            .order_by('id')
-        )
+        # Validar el formato de la fecha
+        datetime.strptime(stats_date, '%Y-%m-%d')
+    except ValueError:
+        return Response({
+            "error": "Invalid date format. Use YYYY-MM-DD."
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-        data = list(results)
-        # Procesar los datos para obtener un objeto por tipo de institución
-        processed_data = process_institution_data(data)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    i.type_institution_id,
+                    ti.category AS categoria,
+                    ti.name,
+                    ti.ordering,
+                    ti.url,
+                    b.date_collection,
+                    COUNT(DISTINCT i.id) AS calculated
+                FROM
+                    social_metrics_institution i
+                INNER JOIN
+                    social_metrics_typeinstitution ti ON i.type_institution_id = ti.id
+                INNER JOIN
+                    social_metrics_basemetrics b ON i.id = b.institution_id
+                WHERE
+                    ti.category = %s
+                    AND b.date_collection = %s
+                GROUP BY
+                    i.type_institution_id, b.date_collection
+                ORDER BY
+                    i.type_institution_id;
+            """, [category, stats_date])
+        
+            columns = [col[0] for col in cursor.description]
+            data = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+            for item in data:
+                if 'calculated' in item:
+                    item['institution_count'] = item.pop('calculated') 
 
-        return JsonResponse(processed_data, safe=False, encoder=DjangoJSONEncoder)
-    
+        return JsonResponse(data, safe=False, encoder=DjangoJSONEncoder)
+
     except Exception as e:
         return Response({
             "error": str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def process_institution_data(data):
     processed = {}
@@ -266,7 +290,7 @@ def process_institution_data(data):
                 processed[institution_id] = item
             # Si las fechas son iguales, sumar el conteo
             elif item['date_collection'] == processed[institution_id]['date_collection']:
-                processed[institution_id]['institution_count'] += item['institution_count']
+                processed[institution_id]['sys'] += item['calculated']
     
     return list(processed.values())
     
