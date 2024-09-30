@@ -44,4 +44,15 @@ class Subscription(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username}'s {self.plan} subscription"
+        plan_name = self.plan.name if self.plan else 'No plan'
+        return f"{self.user.username}'s {plan_name} subscription"
+    
+class PaymentTokenDiscount(models.Model):
+    token = models.CharField(max_length=100, unique=True)
+    subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
+    discount = models.IntegerField(null=True, blank=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
