@@ -34,8 +34,9 @@ class ListUsers(APIView):
         """
         Return a list of all users.
         """
-        users = User.objects.all()
+        users = User.objects.prefetch_related('user_roles__role').all()
         serializer = UserSerializer(users, many=True)
+        print(serializer.data)
         return Response(serializer.data)
     
 

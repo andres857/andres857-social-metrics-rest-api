@@ -441,6 +441,10 @@ def user_detail(request):
             'status': subscription.status,
             'payment_type': subscription.payment_type,
         })
+        
+    # Obtener los roles del usuario
+    user_roles = UserRole.objects.filter(user=user).select_related('role')
+    roles_info = [{'identifier': ur.role.identifier, 'name': ur.role.name} for ur in user_roles]
     
     return JsonResponse({
         'id': user.id,
@@ -453,7 +457,8 @@ def user_detail(request):
         'last_login': user.last_login.isoformat() if user.last_login else None,
         'profile_picture': user.profile_picture if hasattr(user, 'profile') else None,
         'organization': user.organization if hasattr(user, 'organization') else None,
-        'subscriptions_info': subscriptions_info
+        'subscriptions_info': subscriptions_info,
+        'roles': roles_info
         # Añadir cualquier otro campo que se necesite
     })
     
