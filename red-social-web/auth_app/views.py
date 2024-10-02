@@ -351,7 +351,7 @@ class CSRFTokenView(View):
         csrf_token = get_token(request)  # Obtener el token CSRF
         return JsonResponse({'csrfToken': csrf_token})  # Devolverlo como JSON
 
-@method_decorator(ensure_csrf_cookie, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class CustomLogoutView(View):
     def post(self, request, *args, **kwargs):
         if request.user.is_authenticated:
