@@ -649,110 +649,53 @@ def manage_social_metrics(request):
             # return get_metrics_by_date(request)
             return get_all_metrics_institutions_by_date_and_category(request)
         
-        return get_metrics_by_type_and_date(request)
+        return get_all_metrics_institutions_by_date_type_and_category(request)
+        # return get_metrics_by_type_and_date(request)
 
-def get_institutions_from_type(institution_type):
-    try:
-        # Obtener el tipo de institución
-        type_obj = TypeInstitution.objects.get(name=institution_type)
+# def get_institutions_from_type(institution_type):
+#     try:
+#         # Obtener el tipo de institución
+#         type_obj = TypeInstitution.objects.get(name=institution_type)
         
-        # Filtrar las métricas basadas en el tipo de institución
-        metrics = BaseMetrics.objects.filter(
-            institution__type_institution=type_obj
-        ).select_related('institution', 'socialnetwork')
+#         # Filtrar las métricas basadas en el tipo de institución
+#         metrics = BaseMetrics.objects.filter(
+#             institution__type_institution=type_obj
+#         ).select_related('institution', 'socialnetwork')
         
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, 
-            use_natural_foreign_keys=True, 
-            use_natural_primary_keys=True)
+#         # Serializar el QuerySet a JSON
+#         metrics_json = serialize('json', metrics, 
+#             use_natural_foreign_keys=True, 
+#             use_natural_primary_keys=True)
         
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
+#         # Convertir la cadena JSON a una lista de diccionarios
+#         metrics_list = json.loads(metrics_json)
         
-        # Extraer solo los campos necesarios
-        data = []
-        print(metrics_list)
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution']) 
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "engagement_rate": metric['engagment_rate']
-            })
+#         # Extraer solo los campos necesarios
+#         data = []
+#         print(metrics_list)
+#         for item in metrics_list:
+#             metric = item['fields']
+#             institution = get_data_from_institution_by_id(metric['institution']) 
+#             type_institution = get_type_institution(institution.type_institution_id)
+#             name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+#             data.append({
+#                 "institution": institution.name,
+#                 "type": type_institution.name,
+#                 "city": institution.city,
+#                 "social_network": name_social_network,
+#                 "followers": metric['followers'],
+#                 "publications": metric['publications'],
+#                 "reactions": metric['reactions'],
+#                 "date_collection": metric['date_collection'],
+#                 "engagement_rate": metric['engagment_rate']
+#             })
 
-        transformed_data = transform_data(data)
-        # print(transformed_data)
-        return JsonResponse(transformed_data)
+#         transformed_data = transform_data(data)
+#         # print(transformed_data)
+#         return JsonResponse(transformed_data)
 
-    except TypeInstitution.DoesNotExist:
-        return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
-
-def get_metrics_by_date(request):
-    date_str = request.GET.get('date')
-    category = request.GET.get('category')
-
-    target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
-    print(f"Target date 1: {target_date}")
-
-    try:
-        # Filtrar las métricas por la fecha específica
-        metrics = BaseMetrics.objects.filter(date_collection=target_date).select_related('institution', 'socialnetwork')
-        
-        # Si se proporciona una categoría, filtrar por ella
-        if category:
-            metrics = metrics.filter(institution__type_institution__category=category)
-
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
-        
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
-        
-        # Procesar y transformar los datos 
-        data = []
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution'])
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "Average_views": metric['Average_views']
-            })
-        
-        # Transformar los datos
-        transformed_data = transform_data(data)
-
-        # Preparar la respuesta
-        response_data = {
-            "data": {
-                "metrics": transformed_data["metrics"]
-            }
-        }
-        
-        return JsonResponse(response_data, safe=False)
-    
-    except Exception as e:
-        import traceback
-        print(traceback.format_exc())  # Esto imprimirá el traceback completo
-        return JsonResponse({"error": str(e)}, status=500)
+#     except TypeInstitution.DoesNotExist:
+#         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
 
 def transform_metrics_data_sql(new_data):
     transformed = defaultdict(lambda: {
@@ -768,7 +711,6 @@ def transform_metrics_data_sql(new_data):
     })
 
     for item in new_data:
-        print("*********", item)
         institution_id = item['id']
         transformed[institution_id]["Institucion"] = item['institution']
         transformed[institution_id]["Ciudad"] = item['ciudad']
@@ -785,7 +727,6 @@ def transform_metrics_data_sql(new_data):
     return list(transformed.values())
 
 def get_all_metrics_institutions_by_date_and_category(request):
-    print('hello')
     category = request.GET.get('category')
     # stats_date = request.GET.get('stats_date')
     stats_date = request.GET.get('date')
@@ -826,6 +767,74 @@ def get_all_metrics_institutions_by_date_and_category(request):
                 WHERE ti.category = %s 
                 AND b.date_collection = %s;
             """, [category, stats_date])
+        
+            columns = [col[0] for col in cursor.description]
+            data = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+            for item in data:
+                if 'calculated' in item:
+                    item['institution_count'] = item.pop('calculated')
+            dt= transform_metrics_data_sql(data)
+            print(dt)
+            return JsonResponse({
+                    "data": {
+                    "metrics": dt
+                }
+            }, 
+                safe=False, 
+                encoder=DjangoJSONEncoder
+            )   
+    
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())  # Esto imprimirá el traceback completo
+        return JsonResponse({"error": str(e)}, status=500)
+    
+def get_all_metrics_institutions_by_date_type_and_category(request):
+    category = request.GET.get('category')
+    # stats_date = request.GET.get('stats_date')
+    stats_date = request.GET.get('date')
+    type_institution = request.GET.get('type')
+
+    if not category or not stats_date or not type_institution:
+        return Response({
+            "error": "Category, type Institution and stats_date are required."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        datetime.strptime(stats_date, '%Y-%m-%d')
+    except ValueError:
+        return Response({
+            "error": "Invalid date format. Use YYYY-MM-DD."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    i.id,
+                    i.name as institution,
+                    i.city as ciudad,
+                    ti.name as tipo,
+                    SN.name,
+                    b.followers as followers,
+                    b.publications as publications,
+                    b.reactions as reactions,
+                    b.date_collection,
+                    b.Average_views as average_views
+                FROM
+                    social_metrics_institution i
+                INNER JOIN
+                    social_metrics_typeinstitution ti ON i.type_institution_id = ti.id
+                INNER JOIN
+                    social_metrics_basemetrics b ON i.id = b.institution_id
+                INNER JOIN social_metrics_socialnetwork SN ON b.socialnetwork_id = SN.id
+                WHERE ti.category = %s 
+                AND b.date_collection = %s
+                AND ti.name = %s ;
+            """, [category, stats_date, type_institution])
         
             columns = [col[0] for col in cursor.description]
             data = [
