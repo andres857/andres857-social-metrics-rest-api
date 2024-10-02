@@ -731,6 +731,9 @@ def get_all_metrics_institutions_by_date_and_category(request):
     # stats_date = request.GET.get('stats_date')
     stats_date = request.GET.get('date')
 
+    page_number = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 30)
+
     if not category or not stats_date:
         return Response({
             "error": "Both category and stats_date are required."
@@ -777,11 +780,18 @@ def get_all_metrics_institutions_by_date_and_category(request):
                 if 'calculated' in item:
                     item['institution_count'] = item.pop('calculated')
             dt= transform_metrics_data_sql(data)
-            print(dt)
+
+            # Paginación
+            paginator = Paginator(dt, page_size)
+            page_obj = paginator.get_page(page_number)
+
             return JsonResponse({
-                    "data": {
-                    "metrics": dt
-                }
+                "data": {
+                    "metrics": list(page_obj),
+                    "total_pages": paginator.num_pages,
+                    "current_page": page_obj.number,
+                    "total_items": paginator.count,
+                },
             }, 
                 safe=False, 
                 encoder=DjangoJSONEncoder
