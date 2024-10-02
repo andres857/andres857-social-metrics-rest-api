@@ -21,7 +21,6 @@ from .models import Institution, SocialNetwork, TypeInstitution, InstitutionStat
 from datetime import datetime
 from tabulate import tabulate
 from .serializers import InstitutionSerializer, TypeInstitutionSerializer
-from .exceptions import InstitutionCreationError, TypeInstitutionError
 from urllib.parse import urlparse, unquote, quote
 
 
@@ -36,7 +35,7 @@ def manage_social_networks(request,id):
     if request.method == 'POST':
         return create_social_network(request)
     elif request.method == 'PUT':
-        return update_social_network(request,id)
+        return update_social_network_api(request,id)
     
 @csrf_exempt
 def create_social_network(request):
@@ -46,15 +45,11 @@ def create_social_network(request):
         
         # Extraer los datos
         nombre = data.get('nombre')
-        percentage_correction_type_institution = data.get('percentage_type_institution')
-        percentage_correction_social_network = data.get('percentage_social_network')
-        
+
         # Crear el registro en la base de datos
         with transaction.atomic():
             social_network = SocialNetwork(
                 name=nombre,
-                # percentage_correction_type_institutions = percentage_correction_type_institution,
-                # percentage_correction_social_networks = percentage_correction_social_network
             )
             social_network.save()
 
@@ -63,9 +58,7 @@ def create_social_network(request):
             'message': 'Institución creada correctamente',
             'data': {
                 'id': social_network.id,
-                'nombre': social_network.name,
-                # 'percentage_type_institution': social_network.percentage_correction_type_institutions,
-                # 'percentage_social_network': social_network.percentage_correction_social_networks
+                'nombre': social_network.name
             }
         }
 
@@ -74,45 +67,44 @@ def create_social_network(request):
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)
 
-# @csrf_exempt
-# def update_social_network(request, id):
-#     try:
-#         # Parsear el JSON del cuerpo de la solicitud
-#         data = json.loads(request.body)
+@csrf_exempt
+def update_social_network_api(request, id):
+    try:
+        # Parsear el JSON del cuerpo de la solicitud
+        data = json.loads(request.body)
         
-#         # Extraer los datos
-#         percentage_correction_type_institution = data.get('percentage_type_institution')
-#         percentage_correction_social_network = data.get('percentage_social_network')
+        # Extraer los datos
+        percentage_correction_type_institution = data.get('percentage_type_institution')
+        percentage_correction_social_network = data.get('percentage_social_network')
         
-#         # Obtener el registro existente
-#         try:
-#             social_network = SocialNetwork.objects.get(id=id)
-#         except SocialNetwork.DoesNotExist:
-#             return JsonResponse({'status': 'error', 'message': 'SocialNetwork no encontrada'}, status=404)
+        # Obtener el registro existente
+        try:
+            social_network = SocialNetwork.objects.get(id=id)
+        except SocialNetwork.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'SocialNetwork no encontrada'}, status=404)
         
-#         # Actualizar el registro en la base de datos
-#         with transaction.atomic():
-#             if percentage_correction_type_institution is not None:
-#                 social_network.percentage_correction_type_institutions = percentage_correction_type_institution
-#                 social_network.percentage_correction_social_networks = percentage_correction_social_network
-#             social_network.save()
+        # Actualizar el registro en la base de datos
+        with transaction.atomic():
+            if percentage_correction_type_institution is not None:
+                social_network.percentage_correction_type_institutions = percentage_correction_type_institution
+                social_network.percentage_correction_social_networks = percentage_correction_social_network
+            social_network.save()
 
-#         response_data = {
-#             'status': 'success',
-#             'message': 'SocialNetwork actualizada correctamente',
-#             'data': {
-#                 'id': social_network.id,
-#                 'nombre': social_network.name,
-#                 'percentage_type_institution': social_network.percentage_correction_type_institutions,
-#                 'percentage_social_network': social_network.percentage_correction_social_networks
+        response_data = {
+            'status': 'success',
+            'message': 'SocialNetwork actualizada correctamente',
+            'data': {
+                'id': social_network.id,
+                'nombre': social_network.name,
+                'percentage_type_institution': social_network.percentage_correction_type_institutions,
+                'percentage_social_network': social_network.percentage_correction_social_networks
 
-#             }
-#         }
-
-#         return JsonResponse(response_data, status=200)
+            }
+        }
+        return JsonResponse(response_data, status=200)
     
-#     except json.JSONDecodeError:
-#         return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)        
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido'}, status=400)        
 
 @csrf_exempt
 def create_institution(request):
@@ -190,10 +182,7 @@ def list_intitutions_by_type(request):
 
 @api_view(['GET','POST'])
 def manage_institutions(request):
-    if request.method == 'GET':
-        # return list_intitutions_by_type(request)
-        return list_institutions_for_type_and_date(request)
-    elif request.method == 'POST':
+    if request.method == 'POST':
         return create_institution(request)
 
 def dates_collections(request):
@@ -293,13 +282,6 @@ def process_institution_data(data):
                 processed[institution_id]['sys'] += item['calculated']
     
     return list(processed.values())
-    
-@api_view(['GET','POST'])
-def manage_institutions_oks(request):
-    if request.method == 'GET':
-        return list_institutions_for_type_and_date(request)
-    elif request.method == 'POST':
-        return create_institution(request)
 
 @csrf_exempt
 def create_metrics(request):
@@ -664,107 +646,224 @@ def manage_social_metrics(request):
         institution_type = request.GET.get('type')
         print(institution_type, date)
         if institution_type == "todos":
-            return get_metrics_by_date(request)
+            # return get_metrics_by_date(request)
+            return get_all_metrics_institutions_by_date_and_category(request)
         
-        return get_metrics_by_type_and_date(request)
+        return get_all_metrics_institutions_by_date_type_and_category(request)
+        # return get_metrics_by_type_and_date(request)
 
-def get_institutions_from_type(institution_type):
-    try:
-        # Obtener el tipo de institución
-        type_obj = TypeInstitution.objects.get(name=institution_type)
+# def get_institutions_from_type(institution_type):
+#     try:
+#         # Obtener el tipo de institución
+#         type_obj = TypeInstitution.objects.get(name=institution_type)
         
-        # Filtrar las métricas basadas en el tipo de institución
-        metrics = BaseMetrics.objects.filter(
-            institution__type_institution=type_obj
-        ).select_related('institution', 'socialnetwork')
+#         # Filtrar las métricas basadas en el tipo de institución
+#         metrics = BaseMetrics.objects.filter(
+#             institution__type_institution=type_obj
+#         ).select_related('institution', 'socialnetwork')
         
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, 
-            use_natural_foreign_keys=True, 
-            use_natural_primary_keys=True)
+#         # Serializar el QuerySet a JSON
+#         metrics_json = serialize('json', metrics, 
+#             use_natural_foreign_keys=True, 
+#             use_natural_primary_keys=True)
         
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
+#         # Convertir la cadena JSON a una lista de diccionarios
+#         metrics_list = json.loads(metrics_json)
         
-        # Extraer solo los campos necesarios
-        data = []
-        print(metrics_list)
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution']) 
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "engagement_rate": metric['engagment_rate']
-            })
+#         # Extraer solo los campos necesarios
+#         data = []
+#         print(metrics_list)
+#         for item in metrics_list:
+#             metric = item['fields']
+#             institution = get_data_from_institution_by_id(metric['institution']) 
+#             type_institution = get_type_institution(institution.type_institution_id)
+#             name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
+#             data.append({
+#                 "institution": institution.name,
+#                 "type": type_institution.name,
+#                 "city": institution.city,
+#                 "social_network": name_social_network,
+#                 "followers": metric['followers'],
+#                 "publications": metric['publications'],
+#                 "reactions": metric['reactions'],
+#                 "date_collection": metric['date_collection'],
+#                 "engagement_rate": metric['engagment_rate']
+#             })
 
-        transformed_data = transform_data(data)
-        # print(transformed_data)
-        return JsonResponse(transformed_data)
+#         transformed_data = transform_data(data)
+#         # print(transformed_data)
+#         return JsonResponse(transformed_data)
 
-    except TypeInstitution.DoesNotExist:
-        return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
+#     except TypeInstitution.DoesNotExist:
+#         return JsonResponse({"error": f"Tipo de institución '{institution_type}' no encontrado"}, status=404)
 
-def get_metrics_by_date(request):
-    date_str = request.GET.get('date')
+def transform_metrics_data_sql(new_data):
+    transformed = defaultdict(lambda: {
+        "Institucion": "",
+        "Ciudad": "",
+        "Tipo": "",
+        "social_networks": defaultdict(lambda: {
+            "followers": 0,
+            "publications": 0,
+            "reactions": 0,
+            "Average_views": 0.0
+        })
+    })
+
+    for item in new_data:
+        institution_id = item['id']
+        transformed[institution_id]["Institucion"] = item['institution']
+        transformed[institution_id]["Ciudad"] = item['ciudad']
+        transformed[institution_id]["Tipo"] = item['tipo']
+
+        network = item['name']
+        transformed[institution_id]["social_networks"][network].update({
+            "followers": item['followers'],
+            "publications": item['publications'],
+            "reactions": item['reactions'],
+            "Average_views":  item['average_views']
+        })
+
+    return list(transformed.values())
+
+def get_all_metrics_institutions_by_date_and_category(request):
     category = request.GET.get('category')
+    # stats_date = request.GET.get('stats_date')
+    stats_date = request.GET.get('date')
 
-    target_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
-    print(f"Target date 1: {target_date}")
+    page_number = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 30)
+
+    if not category or not stats_date:
+        return Response({
+            "error": "Both category and stats_date are required."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        datetime.strptime(stats_date, '%Y-%m-%d')
+    except ValueError:
+        return Response({
+            "error": "Invalid date format. Use YYYY-MM-DD."
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # Filtrar las métricas por la fecha específica
-        metrics = BaseMetrics.objects.filter(date_collection=target_date).select_related('institution', 'socialnetwork')
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    i.id,
+                    i.name as institution,
+                    i.city as ciudad,
+                    ti.name as tipo,
+                    SN.name,
+                    b.followers as followers,
+                    b.publications as publications,
+                    b.reactions as reactions,
+                    b.date_collection,
+                    b.Average_views as average_views
+                FROM
+                    social_metrics_institution i
+                INNER JOIN
+                    social_metrics_typeinstitution ti ON i.type_institution_id = ti.id
+                INNER JOIN
+                    social_metrics_basemetrics b ON i.id = b.institution_id
+                INNER JOIN social_metrics_socialnetwork SN ON b.socialnetwork_id = SN.id
+                WHERE ti.category = %s 
+                AND b.date_collection = %s;
+            """, [category, stats_date])
         
-        # Si se proporciona una categoría, filtrar por ella
-        if category:
-            metrics = metrics.filter(institution__type_institution__category=category)
+            columns = [col[0] for col in cursor.description]
+            data = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+            for item in data:
+                if 'calculated' in item:
+                    item['institution_count'] = item.pop('calculated')
+            dt= transform_metrics_data_sql(data)
 
-        # Serializar el QuerySet a JSON
-        metrics_json = serialize('json', metrics, use_natural_foreign_keys=True, use_natural_primary_keys=True)
-        
-        # Convertir la cadena JSON a una lista de diccionarios
-        metrics_list = json.loads(metrics_json)
-        
-        # Procesar y transformar los datos 
-        data = []
-        for item in metrics_list:
-            metric = item['fields']
-            institution = get_data_from_institution_by_id(metric['institution'])
-            type_institution = get_type_institution(institution.type_institution_id)
-            name_social_network = get_name_social_network_by_id(metric['socialnetwork'])
-            
-            data.append({
-                "institution": institution.name,
-                "type": type_institution.name,
-                "city": institution.city,
-                "social_network": name_social_network,
-                "followers": metric['followers'],
-                "publications": metric['publications'],
-                "reactions": metric['reactions'],
-                "date_collection": metric['date_collection'],
-                "Average_views": metric['Average_views']
-            })
-        
-        # Transformar los datos
-        transformed_data = transform_data(data)
+            # Paginación
+            paginator = Paginator(dt, page_size)
+            page_obj = paginator.get_page(page_number)
 
-        # Preparar la respuesta
-        response_data = {
-            "data": {
-                "metrics": transformed_data["metrics"]
-            }
-        }
+            return JsonResponse({
+                "data": {
+                    "metrics": list(page_obj),
+                    "total_pages": paginator.num_pages,
+                    "current_page": page_obj.number,
+                    "total_items": paginator.count,
+                },
+            }, 
+                safe=False, 
+                encoder=DjangoJSONEncoder
+            )   
+    
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())  # Esto imprimirá el traceback completo
+        return JsonResponse({"error": str(e)}, status=500)
+    
+def get_all_metrics_institutions_by_date_type_and_category(request):
+    category = request.GET.get('category')
+    # stats_date = request.GET.get('stats_date')
+    stats_date = request.GET.get('date')
+    type_institution = request.GET.get('type')
+
+    if not category or not stats_date or not type_institution:
+        return Response({
+            "error": "Category, type Institution and stats_date are required."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        datetime.strptime(stats_date, '%Y-%m-%d')
+    except ValueError:
+        return Response({
+            "error": "Invalid date format. Use YYYY-MM-DD."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    i.id,
+                    i.name as institution,
+                    i.city as ciudad,
+                    ti.name as tipo,
+                    SN.name,
+                    b.followers as followers,
+                    b.publications as publications,
+                    b.reactions as reactions,
+                    b.date_collection,
+                    b.Average_views as average_views
+                FROM
+                    social_metrics_institution i
+                INNER JOIN
+                    social_metrics_typeinstitution ti ON i.type_institution_id = ti.id
+                INNER JOIN
+                    social_metrics_basemetrics b ON i.id = b.institution_id
+                INNER JOIN social_metrics_socialnetwork SN ON b.socialnetwork_id = SN.id
+                WHERE ti.category = %s 
+                AND b.date_collection = %s
+                AND ti.name = %s ;
+            """, [category, stats_date, type_institution])
         
-        return JsonResponse(response_data, safe=False)
+            columns = [col[0] for col in cursor.description]
+            data = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+            for item in data:
+                if 'calculated' in item:
+                    item['institution_count'] = item.pop('calculated')
+            dt= transform_metrics_data_sql(data)
+            print(dt)
+            return JsonResponse({
+                    "data": {
+                    "metrics": dt
+                }
+            }, 
+                safe=False, 
+                encoder=DjangoJSONEncoder
+            )   
     
     except Exception as e:
         import traceback
