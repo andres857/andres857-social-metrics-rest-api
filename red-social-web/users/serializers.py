@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
     user_roles = UserRoleSerializer(many=True, read_only=True)
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'identification', 'is_active', 'organization', 'user_roles']  # Añade o quita campos según necesites
+        fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'organization', 'user_roles']  # Añade o quita campos según necesites
         
 
 class CreateUserSerializer(serializers.ModelSerializer):
@@ -27,7 +27,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['identification', 'email', 'password', 'first_name', 'last_name', 'phone', 'is_superuser']
+        fields = ['email', 'password', 'first_name', 'last_name', 'phone', 'is_superuser']
 
     def create(self, validated_data):
         is_superuser = validated_data.pop('is_superuser', False)
@@ -42,9 +42,9 @@ class CreateUserSerializer(serializers.ModelSerializer):
 class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['identification', 'email', 'first_name', 'last_name', 'phone', 'is_staff']  # Ajusta según tus campos
+        fields = ['email', 'first_name', 'last_name', 'phone', 'is_staff']  # Ajusta según tus campos
         extra_kwargs = {
-            'identification': {'required': False},
+            #'identification': {'required': False},
             'email': {'required': False}
         }
 
