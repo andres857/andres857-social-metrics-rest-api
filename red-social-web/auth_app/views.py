@@ -47,6 +47,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.encoding import force_str
+from django.middleware.csrf import get_token
 
 from django.core.exceptions import ValidationError
 import logging
@@ -342,6 +343,13 @@ class CustomRegisterView(APIView):
             "errors": serializer.errors,
             "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+method_decorator(csrf_exempt, name='dispatch')  # Eximir de CSRF para este endpoint
+class CSRFTokenView(View):
+    def get(self, request, *args, **kwargs):
+        csrf_token = get_token(request)  # Obtener el token CSRF
+        return JsonResponse({'csrfToken': csrf_token})  # Devolverlo como JSON
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CustomLogoutView(View):
