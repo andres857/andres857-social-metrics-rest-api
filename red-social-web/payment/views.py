@@ -43,26 +43,32 @@ def create_preference(request):
 
     try:
         data = json.loads(request.body)
-        plan_name = data.get('plan')
+        plans = data.get('plans', [])
         user_id = data.get('user_id')
 
-        logger.info(f"Creando preferencia para usuario {user_id} con plan {plan_name}")
+        logger.info(f"Creando preferencia para usuario {user_id} con planes {plans}")
 
-        if not all([plan_name, user_id]):
-            return JsonResponse({"error": "Se requieren plan y user_id"}, status=400)
+        if not all([plans, user_id]):
+            return JsonResponse({"error": "Se requieren planes y user_id"}, status=400)
 
         user = get_object_or_404(User, id=user_id)
-        plan = get_object_or_404(SubscriptionPlan, name=plan_name)
+
+        total_price = 0
+        items = []
+        subscriptions = []
+
+        for plan_name in plans:
+            plan = get_object_or_404(SubscriptionPlan, name=plan_name)
+            total_price += float(plan.price)
+            items.append({
+                "title": plan.description,
+                "quantity": 1,
+                "currency_id": "COP",
+                "unit_price": float(plan.price)
+            })
 
         preference_data = {
-            "items": [
-                {
-                    "title": plan.description,
-                    "quantity": 1,
-                    "currency_id": "COP",
-                    "unit_price": float(plan.price)
-                }
-            ],
+            "items": items,
             "payer": {
                 "name": user.first_name,
                 "last_name": user.last_name,
@@ -98,22 +104,25 @@ def create_preference(request):
                 "mercadopago_response": preference
             }, status=500)
 
-        # Crear o actualizar la suscripción
+        # Crear una suscripción para cada plan
         start_date = timezone.now()
-        end_date = start_date + relativedelta(days=plan.duration_days)
+        for plan_name in plans:
+            plan = SubscriptionPlan.objects.get(name=plan_name)
+            end_date = start_date + relativedelta(days=plan.duration_days)
 
-        subscription, created = Subscription.objects.update_or_create(
-            user=user,
-            defaults={
-                'plan': plan,
-                'active': False,
-                'start_date': start_date,
-                'end_date': end_date,
-                'preference_id': preference['id'],
-                'site_id': preference.get('site_id'),
-                'processing_mode': 'aggregator',
-            }
-        )
+            subscription = Subscription.objects.create(
+                user=user,
+                active=False,
+                start_date=start_date,
+                end_date=end_date,
+                preference_id=preference['id'],
+                site_id=preference.get('site_id'),
+                processing_mode='aggregator',
+                plan_id = plan.id
+                # total_price=float(plan.price),
+            )
+            #subscription.plan_id.add(plan.id)
+            subscriptions.append(subscription)
 
         return JsonResponse({
             "id": preference["id"],
@@ -154,36 +163,45 @@ def payment_success(request):
 
     if payment_data['status'] != 'approved':
         logger.warning(f"Pago no aprobado. Estado: {payment_data['status']}")
-        return render(request, 'payment_error.html', {'error': 'El pago no fue aprobado'})
+        print(' no se puede continuar'. payment_data)
+        return render(request, 'payment_error.html', {'error': 'El pago no fue aprobado', 'url_front': f"{settings.FRONTEND_URL}/pricing"})
 
     try:
         user = get_object_or_404(User, id=payment_data['external_reference'])
-        subscription = get_object_or_404(Subscription, user=user, active=False)
+        subscriptions = Subscription.objects.filter(user=user, preference_id=payment_data['preference_id'], active=False)
 
-        # Actualizar el estado de la suscripción
-        subscription.active = True
-        subscription.start_date = timezone.now()
-        subscription.end_date = subscription.start_date + relativedelta(days=subscription.plan.duration_days)
-        
-        # Actualizar campos adicionales
-        for key, value in payment_data.items():
-            setattr(subscription, key, value)
+        if not subscriptions.exists():
+            logger.error(f"No se encontraron suscripciones inactivas para el usuario {payment_data['external_reference']} con preference_id {payment_data['preference_id']}")
+            return render(request, 'payment_error.html', {'error': 'No se encontraron suscripciones válidas', 'url_front': f"{settings.FRONTEND_URL}/pricing"})
 
-        subscription.save()
+        for subscription in subscriptions:
+            # Actualizar el estado de la suscripción
+            subscription.active = True
+            
+            # Actualizar campos adicionales
+            for key, value in payment_data.items():
+                setattr(subscription, key, value)
 
-        logger.info(f"Suscripción activada para el usuario {user.id}. Plan: {subscription.plan.name}, Válida hasta: {subscription.end_date}")
+            subscription.save()
+
+            logger.info(f"Suscripción activada para el usuario {user.id}. Plan: {subscription.plan.name}, Válida hasta: {subscription.end_date}")
 
         return render(request, 'payment_success.html', {
             'user': user,
-            'subscription': subscription,
+            'subscriptions': subscriptions,
+            'url_front': f"{settings.FRONTEND_URL}/"
         })
 
-    except Subscription.DoesNotExist:
-        logger.error(f"No se encontró una suscripción inactiva para el usuario {payment_data['external_reference']}")
-        return render(request, 'payment_error.html', {'error': 'No se encontró una suscripción válida'})
     except Exception as e:
         logger.error(f"Error al procesar el pago exitoso: {str(e)}")
-        return render(request, 'payment_error.html', {'error': 'Ocurrió un error al procesar el pago'})
+        return render(request, 'payment_error.html', {'error': 'Ocurrió un error al procesar el pago', 'url_front': f"{settings.FRONTEND_URL}/pricing"})
+
+@login_required
+@require_GET
+def payment_failure(request):
+    return render(request, 'payment_failure.html', {
+        'url_front': f"{settings.FRONTEND_URL}/pricing"
+    })
 
 
 @api_view(['GET'])

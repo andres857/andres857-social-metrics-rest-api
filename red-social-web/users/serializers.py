@@ -1,10 +1,24 @@
 from rest_framework import serializers
 from auth_app.models import CustomUser
+from .models import Role, UserRole
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['identifier', 'name', 'description','title']
+
+class UserRoleSerializer(serializers.ModelSerializer):
+    role = RoleSerializer()
+
+    class Meta:
+        model = UserRole
+        fields = ['role']
 
 class UserSerializer(serializers.ModelSerializer):
+    user_roles = UserRoleSerializer(many=True, read_only=True)
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'identification']  # Añade o quita campos según necesites
+        fields = ['id', 'email', 'first_name', 'last_name', 'identification', 'is_active', 'organization', 'user_roles']  # Añade o quita campos según necesites
         
 
 class CreateUserSerializer(serializers.ModelSerializer):

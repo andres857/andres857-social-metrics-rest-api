@@ -7,6 +7,7 @@ class Role(models.Model):
 
     identifier = models.CharField(max_length=225, unique=True, primary_key=True)
     name = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
