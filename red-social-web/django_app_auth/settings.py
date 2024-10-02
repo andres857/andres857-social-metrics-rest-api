@@ -80,6 +80,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://5.161.74.174:3000",
     "https://stats.colombiaredessociales.com"
 ]
+
+CORS_ORIGIN_WHITELIST = [
+    'https://stats.colombiaredessociales.com'
+]
+
 # CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
