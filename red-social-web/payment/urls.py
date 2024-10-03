@@ -10,4 +10,8 @@ urlpatterns = [
     path('failure/', views.payment_failure, name='payment_failure'),
     path('api/mercadopago/webhook/', views.mercadopago_webhook, name='mercadopago_webhook'),
     path('get/pricing/', views.pricing, name='get_pricing'),
+    
+    path('create-token/', views.create_token_endpoint, name='create-token'),
+    path('list-tokens/', views.list_tokens_endpoint, name='list-tokens'),
+    path('tokens/<str:token>/', views.get_token_details, name='get_token_details'),
 ]

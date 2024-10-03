@@ -17,13 +17,15 @@ from django.http import HttpResponseBadRequest
 
 from django.conf import settings
 
+from datetime import datetime, timedelta
+import secrets
 
 from dateutil.relativedelta import relativedelta
 import json
 import logging
 logger = logging.getLogger(__name__)
 
-from .models import Subscription, SubscriptionPlan
+from .models import Subscription, SubscriptionPlan, PaymentTokenDiscount
 
 # Mercado Pago SDK
 import mercadopago
@@ -255,3 +257,110 @@ def mercadopago_webhook(request):
         logger.error(f"Error al procesar la notificación: {str(e)}")
         return HttpResponse(status=500)
 
+
+
+
+def generate_secure_token(length=32):
+    # Genera un token aleatorio y seguro de la longitud especificada
+    return secrets.token_urlsafe(length)
+
+def create_discount_token(discount, plan_ids, start_date_str, end_date_str):
+    # Parseamos las fechas de inicio y fin a objetos datetime
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+    # Obtenemos los planes usando sus IDs
+    plans = SubscriptionPlan.objects.filter(id__in=plan_ids)
+
+    # Genera un token seguro y único
+    token_str = generate_secure_token()
+
+    # Creamos el token de descuento
+    discount_token = PaymentTokenDiscount.objects.create(
+        token=token_str,
+        discount=discount,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    # Asociamos los planes al token
+    discount_token.subscription_plans.set(plans)
+    
+    return discount_token
+
+
+@csrf_exempt  # Si estás usando CSRF, este decorador es opcional, pero útil en pruebas
+@require_POST  # Solo aceptamos solicitudes POST
+def create_token_endpoint(request):
+    try:
+        # Parseamos los datos enviados en la solicitud (suponiendo que sea JSON)
+        data = json.loads(request.body)
+
+        # Obtenemos los valores enviados
+        discount = data.get('discount')
+        plan_ids = data.get('plan_ids')
+        start_date = data.get('start_date')  # Nueva fecha de inicio
+        end_date = data.get('end_date')  # Nueva fecha de fin
+
+        # Validamos que los campos requeridos estén presentes
+        if not discount or not plan_ids or not start_date or not end_date:
+            return JsonResponse({"error": "Los campos 'discount', 'plan_ids', 'start_date' y 'end_date' son requeridos."}, status=400)
+
+        # Llamamos a la función para crear el token de descuento con las fechas
+        discount_token = create_discount_token(
+            discount=discount,
+            plan_ids=plan_ids,
+            start_date_str=start_date,
+            end_date_str=end_date
+        )
+
+        # Devolvemos una respuesta JSON con los detalles del token creado
+        return JsonResponse({
+            "success": True,
+            "token": discount_token.token,
+            "discount": discount_token.discount,
+            "start_date": discount_token.start_date,
+            "end_date": discount_token.end_date,
+            "subscription_plans": [plan.name for plan in discount_token.subscription_plans.all()]
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Formato JSON inválido."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+def list_tokens_endpoint(request):
+    # Obtenemos todos los tokens
+    tokens = PaymentTokenDiscount.objects.all()
+
+    # Convertimos los tokens a un formato JSON
+    tokens_data = []
+    for token in tokens:
+        tokens_data.append({
+            "token": token.token,
+            "discount": token.discount,
+            "start_date": token.start_date,
+            "end_date": token.end_date,
+            "subscription_plans": [plan.name for plan in token.subscription_plans.all()],
+            "created_at": token.created_at,
+            "updated_at": token.updated_at
+        })
+
+    # Retornamos la lista de tokens en un JsonResponse
+    return JsonResponse({"tokens": tokens_data}, status=200)
+
+
+@api_view(['GET'])
+def get_token_details(request, token):
+    try:
+        token_discount = PaymentTokenDiscount.objects.get(token=token)
+        # Serializar los planes asociados
+        plans = [plan.name for plan in token_discount.subscription_plans.all()]  # Cambiar suscripName por name
+        return Response({
+            "token": token_discount.token,
+            "discount": token_discount.discount,
+            "subscription_plans": plans,
+        })
+    except PaymentTokenDiscount.DoesNotExist:
+        return Response({"error": "Token no encontrado"}, status=404)
