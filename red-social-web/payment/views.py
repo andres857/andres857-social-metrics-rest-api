@@ -17,6 +17,10 @@ from django.http import HttpResponseBadRequest
 
 from django.conf import settings
 
+from .serializers import SubscriptionPlanSerializer, PaymentTokenDiscountSerializer
+
+from rest_framework import status
+
 from datetime import datetime, timedelta
 import secrets
 
@@ -330,25 +334,11 @@ def create_token_endpoint(request):
         return JsonResponse({"error": str(e)}, status=500)
     
 
+@api_view(['GET'])
 def list_tokens_endpoint(request):
-    # Obtenemos todos los tokens
     tokens = PaymentTokenDiscount.objects.all()
-
-    # Convertimos los tokens a un formato JSON
-    tokens_data = []
-    for token in tokens:
-        tokens_data.append({
-            "token": token.token,
-            "discount": token.discount,
-            "start_date": token.start_date,
-            "end_date": token.end_date,
-            "subscription_plans": [plan.name for plan in token.subscription_plans.all()],
-            "created_at": token.created_at,
-            "updated_at": token.updated_at
-        })
-
-    # Retornamos la lista de tokens en un JsonResponse
-    return JsonResponse({"tokens": tokens_data}, status=200)
+    serializer = PaymentTokenDiscountSerializer(tokens, many=True)
+    return Response({"tokens": serializer.data})
 
 
 @api_view(['GET'])
@@ -364,3 +354,40 @@ def get_token_details(request, token):
         })
     except PaymentTokenDiscount.DoesNotExist:
         return Response({"error": "Token no encontrado"}, status=404)
+    
+    
+@api_view(['GET', 'POST'])
+def subscription_plan_list_create(request):
+    if request.method == 'GET':
+        plans = SubscriptionPlan.objects.all()
+        serializer = SubscriptionPlanSerializer(plans, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = SubscriptionPlanSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def subscription_plan_detail(request, pk):
+    try:
+        plan = SubscriptionPlan.objects.get(pk=pk)
+    except SubscriptionPlan.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = SubscriptionPlanSerializer(plan)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = SubscriptionPlanSerializer(plan, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
