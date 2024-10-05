@@ -373,10 +373,9 @@ def create_or_get_institution_from_excel( name , city, type_institution):
 
 def create_metrics_from_excel(followers, publications, reactions, date_collection, institution_id,  id_type_institution, socialnetwork_id):
     # Validación y seteo a 0 para métricas no proporcionadas o NaN
-    # print("////////////////", institution_id, socialnetwork_id, "****",followers )
-    followers = 0 if pd.isna(followers) else max(0, float(followers))
-    publications = 0 if pd.isna(publications) else max(0, float(publications))
-    reactions = 0 if pd.isna(reactions) else max(0, float(reactions))
+    followers = 0 if pd.isna(followers) else int(followers)
+    publications = 0 if pd.isna(publications) else int(publications)
+    reactions = 0 if pd.isna(reactions) else int(reactions)
 
     # Cálculo de average_views
     if publications > 0:
@@ -526,9 +525,9 @@ def procesar_datos_excel(request):
                 type_institution = row.iloc[3]
                 
                 institution_id, id_type_institution  = create_or_get_institution_from_excel(name_institution, city, type_institution);
-                print("instituion id: ",institution_id)
-                print("---------****************-----")
-                print("type_institution id: ",id_type_institution)
+                # print("instituion id: ",institution_id)
+                # print("---------****************-----")
+                # print("type_institution id: ",id_type_institution)
                 followers_facebook = row.iloc[4]
                 publications_facebook = row.iloc[5]
                 interactions_facebook = row.iloc[6]    
@@ -554,10 +553,12 @@ def procesar_datos_excel(request):
                 #stats_youtube = get_channel_stats_youtube(channel_youtube)
                 #create_metrics_from_excel(stats_youtube["subscriber_count"], stats_youtube["video_count"], stats_youtube["views"], fecha_recoleccion, institution_id,id_type_institution, 5)
 
-                print("gets stats from excel file", fecha_recoleccion)
+                # print("gets stats from excel file", fecha_recoleccion)
                 followers_yt = row.iloc[13]
                 publications_yt = row.iloc[14]
                 interactions_yt = row.iloc[15]
+                
+                # for youtube
                 create_metrics_from_excel(followers_yt, publications_yt, interactions_yt, fecha_recoleccion, institution_id,id_type_institution, 5)
 
                 followers_tiktok = row.iloc[16]    
@@ -567,26 +568,27 @@ def procesar_datos_excel(request):
                 # for tiktok
                 create_metrics_from_excel(followers_tiktok, publications_tiktok, interactions_tiktok, fecha_recoleccion, institution_id,id_type_institution, 7)
 
-                print(f"Índice: {index}")
-                print(f"Institución: {name_institution}")
-                print(f"Ciudad: {city}")
-                print(f"Tipo: {type_institution}")
-                print(f"Followers Facebook: {followers_facebook}")
-                print(f"Publications Facebook: {publications_facebook}")
-                print(f"Interactions Facebook: {interactions_facebook}")
-                print(f"Followers X: {followers_X}")
-                print(f"Publications X: {publications_X}")
-                print(f"Interactions X: {interactions_X}")
-                print(f"Followers Instagram: {followers_instagram}")
-                print(f"Publications Instagram: {publications_instagram}")
-                print(f"Interactions Instagram: {interactions_instagram}")
-                print(f"Followers YouTube: {followers_yt}")
-                print(f"Publications YouTube: {publications_yt}")
-                print(f"Interactions YouTube: {interactions_yt}")
-                print(f"Followers TikTok: {followers_tiktok}")
-                print(f"Publications TikTok: {publications_tiktok}")
-                print(f"Interactions TikTok: {interactions_tiktok}")
-                print("--------")
+                # print(f"Índice: {index}")
+                # print(f"Institución: {name_institution}")
+                # print(f"Ciudad: {city}")
+                # print(f"Tipo: {type_institution}")
+                # print(f"Followers Facebook: {int(followers_facebook)}")
+                # print(f"Publications Facebook: {publications_facebook}")
+                # print(f"Interactions Facebook: {interactions_facebook}")
+                # print(f"Followers X: {followers_X}")
+                # print(f"Publications X: {publications_X}")
+                # print(f"Interactions X: {interactions_X}")
+                # print(f"Followers Instagram: {followers_instagram}")
+                # print(f"Publications Instagram: {publications_instagram}")
+                # print(f"Interactions Instagram: {interactions_instagram}")
+                # print(f"Followers YouTube: {followers_yt}")
+                # print(f"Publications YouTube: {publications_yt}")
+                # print(f"Interactions YouTube: {interactions_yt}")
+                # print(f"Followers TikTok: {followers_tiktok}")
+                # print(f"Publications TikTok: {publications_tiktok}")
+                # print(f"Interactions TikTok: {interactions_tiktok}")
+                # print("--------")
+
 
 def calcular_engagement_rate(likes, seguidores):
     return (likes / seguidores * 100) if seguidores > 0 else 0
