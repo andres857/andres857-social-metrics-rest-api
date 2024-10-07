@@ -11,4 +11,4 @@ class PaymentTokenDiscountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PaymentTokenDiscount
-        fields = ['id', 'token', 'discount', 'start_date', 'end_date', 'subscription_plans', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'token', 'discount', 'start_date', 'end_date', 'subscription_plans', 'created_at', 'updated_at']
