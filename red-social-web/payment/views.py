@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
+from django.core.exceptions import PermissionDenied
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
@@ -37,6 +38,8 @@ import mercadopago
 User = get_user_model()
 MEI_TOKEN = os.environ.get('MEI_TOKEN')
 sdk = mercadopago.SDK(MEI_TOKEN)
+ADMIN_ROLE_IDENTIFIERS = ['8np49Ab#', 'Ca0-T17A']
+
 
 @csrf_exempt
 def create_preference(request):
@@ -293,24 +296,27 @@ def create_discount_token(discount, plan_ids, start_date_str, end_date_str):
     return discount_token
 
 
-@csrf_exempt  # Si estás usando CSRF, este decorador es opcional, pero útil en pruebas
-@require_POST  # Solo aceptamos solicitudes POST
+@csrf_exempt
+@require_POST
 def create_token_endpoint(request):
     try:
-        # Parseamos los datos enviados en la solicitud (suponiendo que sea JSON)
         data = json.loads(request.body)
+        
+        print("Data received:", data)  # Depuración
 
-        # Obtenemos los valores enviados
         discount = data.get('discount')
         plan_ids = data.get('plan_ids')
-        start_date = data.get('start_date')  # Nueva fecha de inicio
-        end_date = data.get('end_date')  # Nueva fecha de fin
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
 
-        # Validamos que los campos requeridos estén presentes
+        print("Discount:", discount)
+        print("Plan IDs:", plan_ids)
+        print("Start Date:", start_date)
+        print("End Date:", end_date)
+
         if not discount or not plan_ids or not start_date or not end_date:
             return JsonResponse({"error": "Los campos 'discount', 'plan_ids', 'start_date' y 'end_date' son requeridos."}, status=400)
 
-        # Llamamos a la función para crear el token de descuento con las fechas
         discount_token = create_discount_token(
             discount=discount,
             plan_ids=plan_ids,
@@ -318,7 +324,6 @@ def create_token_endpoint(request):
             end_date_str=end_date
         )
 
-        # Devolvemos una respuesta JSON con los detalles del token creado
         return JsonResponse({
             "success": True,
             "token": discount_token.token,
@@ -354,6 +359,27 @@ def get_token_details(request, token):
         })
     except PaymentTokenDiscount.DoesNotExist:
         return Response({"error": "Token no encontrado"}, status=404)
+    
+    
+
+@login_required
+def delete_token(request, token):
+    # Verifica si el usuario tiene los roles necesarios
+    user_roles = request.user.user_roles.filter(role__identifier__in=ADMIN_ROLE_IDENTIFIERS)
+
+    if not user_roles.exists():
+        raise PermissionDenied("No tienes permiso para realizar esta acción.")
+    
+    print(f"Token recibido: {token}")  # Debug para ver si el token se está recibiendo correctamente
+
+    try:
+        # Busca el token a eliminar
+        discount_token = PaymentTokenDiscount.objects.get(id=token)
+        discount_token.delete()
+        return JsonResponse({"success": True, "message": "Token eliminado correctamente."}, status=200)
+    except PaymentTokenDiscount.DoesNotExist:
+        print(f"Token no encontrado en la base de datos: {token}")  # Debug para verificar si existe
+        return JsonResponse({"error": "Token no encontrado."}, status=404)
     
     
 @api_view(['GET', 'POST'])

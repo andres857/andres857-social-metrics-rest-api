@@ -58,6 +58,7 @@ class Subscription(models.Model):
     
 class PaymentTokenDiscount(models.Model):
     token = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=50, blank=True)
     subscription_plans = models.ManyToManyField(SubscriptionPlan, related_name='discount_tokens')
     discount = models.IntegerField(null=True, blank=True)  # Discount percentage or amount
     start_date = models.DateTimeField(null=True, blank=True)

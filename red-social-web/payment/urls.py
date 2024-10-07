@@ -13,6 +13,7 @@ urlpatterns = [
     path('create-token/', views.create_token_endpoint, name='create-token'),
     path('list-tokens/', views.list_tokens_endpoint, name='list-tokens'),
     path('tokens/<str:token>/', views.get_token_details, name='get_token_details'),
+    path('tokens/delete/<str:token>/', views.delete_token, name='delete_token'),
     
     # Nuevas rutas para los planes de suscripción
     path('subscription-plans/', views.subscription_plan_list_create, name='subscription-plan-list-create'),
