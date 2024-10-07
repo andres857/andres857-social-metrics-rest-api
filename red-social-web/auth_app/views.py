@@ -194,9 +194,6 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 general_user_role = Role.objects.get(identifier='=805MHj0')
                 UserRole.objects.create(user=user, role=general_user_role)
                 
-            if UserRole.objects.filter(user=user).exists():
-                general_user_role = Role.objects.get(identifier='=805MHj0')
-                UserRole.objects.create(user=user, role=general_user_role)
                 
         return None
 
