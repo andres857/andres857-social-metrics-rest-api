@@ -720,10 +720,10 @@ def transform_metrics_data_sql(new_data):
 
         network = item['name']
         transformed[institution_id]["social_networks"][network].update({
-            "followers": item['followers'],
-            "publications": item['publications'],
-            "reactions": item['reactions'],
-            "Average_views":  item['average_views']
+            "followers": round(item['followers']),
+            "publications": round(item['publications']),
+            "reactions": round(item['reactions']),
+            "Average_views":  round(item['average_views'])
         })
 
     return list(transformed.values())
