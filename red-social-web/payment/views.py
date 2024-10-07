@@ -62,6 +62,20 @@ def create_preference(request):
 
         user = get_object_or_404(User, id=user_id)
 
+        # Verificar si el usuario ya tiene suscripciones activas para los planes solicitados
+        existing_subscriptions = Subscription.objects.filter(
+            user=user,
+            active=True,
+            plan_id__in=[SubscriptionPlan.objects.get(name=plan_name).id for plan_name in plans]
+        )
+
+        if existing_subscriptions.exists():
+            existing_plan_names = [sub.plan.name for sub in existing_subscriptions]
+            return JsonResponse({
+                "error": "Ya existen suscripciones activas para los siguientes planes",
+                "existing_plans": existing_plan_names
+            }, status=400)
+
         total_price = 0
         items = []
         subscriptions = []
@@ -127,10 +141,8 @@ def create_preference(request):
                 preference_id=preference['id'],
                 site_id=preference.get('site_id'),
                 processing_mode='aggregator',
-                plan_id = plan.id
-                # total_price=float(plan.price),
+                plan_id=plan.id
             )
-            #subscription.plan_id.add(plan.id)
             subscriptions.append(subscription)
 
         return JsonResponse({
