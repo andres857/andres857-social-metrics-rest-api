@@ -48,6 +48,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.encoding import force_str
 from django.middleware.csrf import get_token
+from django.db import IntegrityError
 
 from django.core.exceptions import ValidationError
 import logging
@@ -165,8 +166,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
             print(user)
             
-            general_user_role = Role.objects.get(identifier='=805MHj0')
-            UserRole.objects.create(user=user, role=general_user_role)
+            try:
+                general_user_role = Role.objects.get(identifier='=805MHj0')
+                UserRole.objects.get_or_create(user=user, role=general_user_role)
+            except (Role.DoesNotExist, IntegrityError) as e:
+                print(f"Error assigning role: {str(e)}")
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
@@ -191,8 +195,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 user.save(update_fields=update_fields)
                 
             if not UserRole.objects.filter(user=user).exists():
-                general_user_role = Role.objects.get(identifier='=805MHj0')
-                UserRole.objects.create(user=user, role=general_user_role)
+                try:
+                    general_user_role = Role.objects.get(identifier='=805MHj0')
+                    UserRole.objects.get_or_create(user=user, role=general_user_role)
+                except (Role.DoesNotExist, IntegrityError) as e:
+                    print(f"Error assigning role: {str(e)}")
                 
                 
         return None
@@ -211,6 +218,14 @@ def google_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
+                        
+            if not UserRole.objects.filter(user=request.user).exists():
+                try:
+                    general_user_role = Role.objects.get(identifier='=805MHj0')
+                    UserRole.objects.get_or_create(user=request.user, role=general_user_role)
+                except (Role.DoesNotExist, IntegrityError) as e:
+                    print(f"Error assigning role: {str(e)}")
+            
             return redirect(f"{settings.FRONTEND_URL}/categories")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
