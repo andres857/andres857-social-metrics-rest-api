@@ -16,6 +16,7 @@ urlpatterns = [
     
     path('stats', views.manage_stats, name='stats'),
 
+    path('followers', views.followers_uniques, name='followers'),
     path('youtube/statistics/', views.get_channel_stats_youtube_api_function, name='data_youtube'),
     path('youtube/bulk-statistics/', views.bulk_channel_stats, name='youtube_bulk_stats'),
     # path("institutions/types/<str:institution_type>", views.list_institutions_for_type_and_date, name="list_institutions_for_type_and_date")

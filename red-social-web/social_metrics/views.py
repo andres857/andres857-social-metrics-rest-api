@@ -1299,37 +1299,6 @@ def get_stats_by_category_id_and_date(request):
                 followers = followers - ( followers * percentage / 100)
                 stat['total_followers'] = round(followers)
         print(response_data)
-        # aplicar el filtro entre typos de institucion dentro de cada red social
-        # social_networks = SocialNetwork.objects.all()
-        # for social_network in social_networks:
-        #     for stat in response_data:
-        #         type_institution = stat['type_institution']
-        #         followers = stat['total_followers']
-        #         if(stat['social_network'] == social_network.name):
-
-        #             print( '[start] [loop]','red social:', stat['social_network'], '=' , social_network.name) 
-        #             print(stat)
-        #             institution = TypeInstitution.objects.get(name=type_institution)
-        #             percentage_correction = institution.percentage_correction_in_network_social
-        #             print('porcentaje de correcion:', percentage_correction)
-        #             followers = followers - ( followers * percentage_correction / 100)
-        #             stat['total_followers'] = round(followers)
-        #             print( '[end]','red social', social_network.name,'=', stat['social_network'], 'seguidores=', stat['total_followers'])
-
-                    
-
-        #aplicar el factor de correccion a la red social
-        # social_networks = SocialNetwork.objects.all()
-        # for social_network in social_networks:
-        #     print(social_network.name, social_network.percentage_correction ,'%')
-        #     for stat in response_data:
-        #         # print stat
-        #         if (social_network.name == stat['social_network'] ):
-        #             print( 'red social', social_network.name,'=', stat['social_network'], 'seguidores=', stat['total_followers'])
-        #             followers = stat['total_followers']
-        #             p_correction = social_network.percentage_correction
-        #             followers = followers - ( followers * p_correction / 100)
-        #             stat['total_followers'] = round(followers)
 
         return Response({
             "stats_date": stats_date,
@@ -1351,3 +1320,25 @@ def manage_stats(request):
             return get_stats_by_category_id_and_date(request)
     elif request.method == 'POST':
         return create_institution_stats_api_t(request)
+    
+@api_view(['GET'])
+def followers_uniques(request):
+    all_stats = get_stats_all_categories_by_date(request)
+
+    correction_factor_facebook = 100
+    correction_factor_x = 75
+    correction_factor_instagram = 50 
+    correction_factor_tiktok = 80
+    correction_factor_youtube = 50
+
+    unique_followers = all_stats.data
+    del unique_followers['stats']
+    unique_followers['unique_followers']['facebook'] = round(unique_followers['unique_followers']['facebook'] * (correction_factor_facebook/100))
+    unique_followers['unique_followers']['X'] = round(unique_followers['unique_followers']['X'] * (correction_factor_x/100))
+    unique_followers['unique_followers']['Instagram'] = round(unique_followers['unique_followers']['Instagram'] * (correction_factor_instagram/100))
+    unique_followers['unique_followers']['YouTube'] = round(unique_followers['unique_followers']['YouTube'] * (correction_factor_youtube/100))
+    unique_followers['unique_followers']['Tiktok'] = round(unique_followers['unique_followers']['Tiktok'] * (correction_factor_tiktok/100))
+
+    return Response({
+        "data": unique_followers
+    })
