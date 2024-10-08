@@ -1453,6 +1453,10 @@ def followers_uniques(request):
         
     percentage_penetration = round(total_followers / population *100);
 
+    print("año: "+ year)
+    print("total " + total_followers)
+    print("total " + percentage_penetration)
+
     return Response({
         # "data": unique_followers,
         "date_stat": year_request,
