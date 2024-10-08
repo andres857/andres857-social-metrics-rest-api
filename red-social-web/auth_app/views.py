@@ -47,6 +47,8 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.encoding import force_str
+from django.middleware.csrf import get_token
+from django.db import IntegrityError
 
 from django.core.exceptions import ValidationError
 import logging
@@ -112,7 +114,7 @@ def linkedin_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
-            return redirect(f"{settings.FRONTEND_URL}/salud")
+            return redirect(f"{settings.FRONTEND_URL}/categories")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
     except Exception as e:
@@ -164,8 +166,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
             print(user)
             
-            general_user_role = Role.objects.get(identifier='=805MHj0')
-            UserRole.objects.create(user=user, role=general_user_role)
+            try:
+                general_user_role = Role.objects.get(identifier='=805MHj0')
+                UserRole.objects.get_or_create(user=user, role=general_user_role)
+            except (Role.DoesNotExist, IntegrityError) as e:
+                print(f"Error assigning role: {str(e)}")
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
@@ -190,8 +195,12 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 user.save(update_fields=update_fields)
                 
             if not UserRole.objects.filter(user=user).exists():
-                general_user_role = Role.objects.get(identifier='=805MHj0')
-                UserRole.objects.create(user=user, role=general_user_role)
+                try:
+                    general_user_role = Role.objects.get(identifier='=805MHj0')
+                    UserRole.objects.get_or_create(user=user, role=general_user_role)
+                except (Role.DoesNotExist, IntegrityError) as e:
+                    print(f"Error assigning role: {str(e)}")
+                
                 
         return None
 
@@ -209,7 +218,15 @@ def google_callback(request):
         # If authentication is successful, create or get a token
         if request.user.is_authenticated:
             refresh = RefreshToken.for_user(request.user)
-            return redirect(f"{settings.FRONTEND_URL}/salud")
+                        
+            if not UserRole.objects.filter(user=request.user).exists():
+                try:
+                    general_user_role = Role.objects.get(identifier='=805MHj0')
+                    UserRole.objects.get_or_create(user=request.user, role=general_user_role)
+                except (Role.DoesNotExist, IntegrityError) as e:
+                    print(f"Error assigning role: {str(e)}")
+            
+            return redirect(f"{settings.FRONTEND_URL}/categories")
         else:
             return redirect(f"{settings.FRONTEND_URL}/login-failed")
     except Exception as e:
@@ -343,7 +360,14 @@ class CustomRegisterView(APIView):
             "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(ensure_csrf_cookie, name='dispatch')
+
+method_decorator(csrf_exempt, name='dispatch')  # Eximir de CSRF para este endpoint
+class CSRFTokenView(View):
+    def get(self, request, *args, **kwargs):
+        csrf_token = get_token(request)  # Obtener el token CSRF
+        return JsonResponse({'csrfToken': csrf_token})  # Devolverlo como JSON
+
+@method_decorator(csrf_exempt, name='dispatch')
 class CustomLogoutView(View):
     def post(self, request, *args, **kwargs):
         if request.user.is_authenticated:

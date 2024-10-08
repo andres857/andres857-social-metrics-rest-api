@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
+from django.core.exceptions import PermissionDenied
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
@@ -17,13 +18,19 @@ from django.http import HttpResponseBadRequest
 
 from django.conf import settings
 
+from .serializers import SubscriptionPlanSerializer, PaymentTokenDiscountSerializer
+
+from rest_framework import status
+
+from datetime import datetime, timedelta
+import secrets
 
 from dateutil.relativedelta import relativedelta
 import json
 import logging
 logger = logging.getLogger(__name__)
 
-from .models import Subscription, SubscriptionPlan
+from .models import Subscription, SubscriptionPlan, PaymentTokenDiscount
 
 # Mercado Pago SDK
 import mercadopago
@@ -31,6 +38,8 @@ import mercadopago
 User = get_user_model()
 MEI_TOKEN = os.environ.get('MEI_TOKEN')
 sdk = mercadopago.SDK(MEI_TOKEN)
+ADMIN_ROLE_IDENTIFIERS = ['8np49Ab#', 'Ca0-T17A']
+
 
 @csrf_exempt
 def create_preference(request):
@@ -52,6 +61,20 @@ def create_preference(request):
             return JsonResponse({"error": "Se requieren planes y user_id"}, status=400)
 
         user = get_object_or_404(User, id=user_id)
+
+        # Verificar si el usuario ya tiene suscripciones activas para los planes solicitados
+        existing_subscriptions = Subscription.objects.filter(
+            user=user,
+            active=True,
+            plan_id__in=[SubscriptionPlan.objects.get(name=plan_name).id for plan_name in plans]
+        )
+
+        if existing_subscriptions.exists():
+            existing_plan_names = [sub.plan.name for sub in existing_subscriptions]
+            return JsonResponse({
+                "error": "Ya existen suscripciones activas para los siguientes planes",
+                "existing_plans": existing_plan_names
+            }, status=400)
 
         total_price = 0
         items = []
@@ -118,10 +141,8 @@ def create_preference(request):
                 preference_id=preference['id'],
                 site_id=preference.get('site_id'),
                 processing_mode='aggregator',
-                plan_id = plan.id
-                # total_price=float(plan.price),
+                plan_id=plan.id
             )
-            #subscription.plan_id.add(plan.id)
             subscriptions.append(subscription)
 
         return JsonResponse({
@@ -206,7 +227,7 @@ def payment_failure(request):
 
 @api_view(['GET'])
 def pricing(request):
-    plans = SubscriptionPlan.objects.all().values('name', 'description', 'price', 'duration_days')
+    plans = SubscriptionPlan.objects.all().values('name', 'description', 'price', 'duration_days', 'title', 'imageCover')
     return Response(list(plans))
 
 @csrf_exempt
@@ -255,3 +276,156 @@ def mercadopago_webhook(request):
         logger.error(f"Error al procesar la notificación: {str(e)}")
         return HttpResponse(status=500)
 
+
+
+
+def generate_secure_token(length=32):
+    # Genera un token aleatorio y seguro de la longitud especificada
+    return secrets.token_urlsafe(length)
+
+def create_discount_token(discount, plan_ids, start_date_str, end_date_str):
+    # Parseamos las fechas de inicio y fin a objetos datetime
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+    # Obtenemos los planes usando sus IDs
+    plans = SubscriptionPlan.objects.filter(id__in=plan_ids)
+
+    # Genera un token seguro y único
+    token_str = generate_secure_token()
+
+    # Creamos el token de descuento
+    discount_token = PaymentTokenDiscount.objects.create(
+        token=token_str,
+        discount=discount,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    # Asociamos los planes al token
+    discount_token.subscription_plans.set(plans)
+    
+    return discount_token
+
+
+@csrf_exempt
+@require_POST
+def create_token_endpoint(request):
+    try:
+        data = json.loads(request.body)
+        
+        print("Data received:", data)  # Depuración
+
+        discount = data.get('discount')
+        plan_ids = data.get('plan_ids')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+
+        print("Discount:", discount)
+        print("Plan IDs:", plan_ids)
+        print("Start Date:", start_date)
+        print("End Date:", end_date)
+
+        if not discount or not plan_ids or not start_date or not end_date:
+            return JsonResponse({"error": "Los campos 'discount', 'plan_ids', 'start_date' y 'end_date' son requeridos."}, status=400)
+
+        discount_token = create_discount_token(
+            discount=discount,
+            plan_ids=plan_ids,
+            start_date_str=start_date,
+            end_date_str=end_date
+        )
+
+        return JsonResponse({
+            "success": True,
+            "token": discount_token.token,
+            "discount": discount_token.discount,
+            "start_date": discount_token.start_date,
+            "end_date": discount_token.end_date,
+            "subscription_plans": [plan.name for plan in discount_token.subscription_plans.all()]
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Formato JSON inválido."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+@api_view(['GET'])
+def list_tokens_endpoint(request):
+    tokens = PaymentTokenDiscount.objects.all()
+    serializer = PaymentTokenDiscountSerializer(tokens, many=True)
+    return Response({"tokens": serializer.data})
+
+
+@api_view(['GET'])
+def get_token_details(request, token):
+    try:
+        token_discount = PaymentTokenDiscount.objects.get(token=token)
+        # Serializar los planes asociados
+        plans = [plan.name for plan in token_discount.subscription_plans.all()]  # Cambiar suscripName por name
+        return Response({
+            "token": token_discount.token,
+            "discount": token_discount.discount,
+            "subscription_plans": plans,
+        })
+    except PaymentTokenDiscount.DoesNotExist:
+        return Response({"error": "Token no encontrado"}, status=404)
+    
+    
+
+@login_required
+def delete_token(request, token):
+    # Verifica si el usuario tiene los roles necesarios
+    user_roles = request.user.user_roles.filter(role__identifier__in=ADMIN_ROLE_IDENTIFIERS)
+
+    if not user_roles.exists():
+        raise PermissionDenied("No tienes permiso para realizar esta acción.")
+    
+    print(f"Token recibido: {token}")  # Debug para ver si el token se está recibiendo correctamente
+
+    try:
+        # Busca el token a eliminar
+        discount_token = PaymentTokenDiscount.objects.get(id=token)
+        discount_token.delete()
+        return JsonResponse({"success": True, "message": "Token eliminado correctamente."}, status=200)
+    except PaymentTokenDiscount.DoesNotExist:
+        print(f"Token no encontrado en la base de datos: {token}")  # Debug para verificar si existe
+        return JsonResponse({"error": "Token no encontrado."}, status=404)
+    
+    
+@api_view(['GET', 'POST'])
+def subscription_plan_list_create(request):
+    if request.method == 'GET':
+        plans = SubscriptionPlan.objects.all()
+        serializer = SubscriptionPlanSerializer(plans, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = SubscriptionPlanSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def subscription_plan_detail(request, pk):
+    try:
+        plan = SubscriptionPlan.objects.get(pk=pk)
+    except SubscriptionPlan.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = SubscriptionPlanSerializer(plan)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = SubscriptionPlanSerializer(plan, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

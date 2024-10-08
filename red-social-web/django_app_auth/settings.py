@@ -80,6 +80,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://5.161.74.174:3000",
     "https://stats.colombiaredessociales.com"
 ]
+
+CORS_ORIGIN_WHITELIST = [
+    'https://stats.colombiaredessociales.com'
+]
+
 # CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -138,6 +143,7 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': [
                 'profile',
                 'email',
+                'https://www.googleapis.com/auth/userinfo.profile'
             ],
         'EMAIL_AUTHENTICATION': True,
         'AUTH_PARAMS': {
@@ -228,6 +234,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -261,6 +270,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'  # o 'Strict' si es necesario
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = True
 CSRF_USE_SESSIONS = False
+CSRF_COOKIE_NAME = 'csrftoken'
 
 #LOGIN_REDIRECT_URL = '/'
 #ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
