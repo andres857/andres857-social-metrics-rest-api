@@ -1323,22 +1323,79 @@ def manage_stats(request):
     
 @api_view(['GET'])
 def followers_uniques(request):
+    date = request.query_params.get('stats_date')
+    date = datetime.strptime(date, "%Y-%m-%d").date()
+    year_request = date.year
+    
+    poblation_by_year = [
+        {
+            "year": 2016,
+            "population": 47625955
+        },
+        {
+            "year": 2017,
+            "population": 48351671
+        },
+        {
+            "year": 2018,
+            "population": 49276961
+        },
+        {
+            "year": 2019,
+            "population": 50187406
+        },
+        {
+            "year": 2020,
+            "population": 50930662
+        },
+        {
+            "year": 2021,
+            "population": 51516562
+        },
+        {
+            "year": 2022,
+            "population": 51874024
+        },
+        {
+            "year": 2023,
+            "population": 52220000
+        },
+        {
+            "year": 2024,
+            "population": 52600000
+        }
+    ]
+    
     all_stats = get_stats_all_categories_by_date(request)
+    unique_followers = all_stats.data
+    del unique_followers['stats']
 
     correction_factor_facebook = 100
-    correction_factor_x = 75
+    correction_factor_x = 65
     correction_factor_instagram = 50 
     correction_factor_tiktok = 80
     correction_factor_youtube = 50
 
-    unique_followers = all_stats.data
-    del unique_followers['stats']
     unique_followers['unique_followers']['facebook'] = round(unique_followers['unique_followers']['facebook'] * (correction_factor_facebook/100))
     unique_followers['unique_followers']['X'] = round(unique_followers['unique_followers']['X'] * (correction_factor_x/100))
     unique_followers['unique_followers']['Instagram'] = round(unique_followers['unique_followers']['Instagram'] * (correction_factor_instagram/100))
     unique_followers['unique_followers']['YouTube'] = round(unique_followers['unique_followers']['YouTube'] * (correction_factor_youtube/100))
     unique_followers['unique_followers']['Tiktok'] = round(unique_followers['unique_followers']['Tiktok'] * (correction_factor_tiktok/100))
 
+    # Sumar todos los valores del diccionario
+    total_followers = sum(unique_followers['unique_followers'].values())
+
+    for year in poblation_by_year:
+        if year['year'] == year_request:
+            population = year['population']
+            break
+        
+    percentage_penetration = round(total_followers / population *100);
+
     return Response({
-        "data": unique_followers
+        # "data": unique_followers,
+        "date_stat": year_request,
+        "poblation": population,
+        "unique_followers": total_followers,
+        "percentage_penetration": percentage_penetration
     })
