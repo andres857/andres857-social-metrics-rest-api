@@ -25,7 +25,7 @@ class Subscription(models.Model):
         ('other', 'Other'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions')
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
     active = models.BooleanField(default=False)
     start_date = models.DateTimeField(null=True, blank=True)
