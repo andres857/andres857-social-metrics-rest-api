@@ -1391,39 +1391,102 @@ def followers_uniques(request):
     poblation_by_year = [
         {
             "year": 2016,
-            "population": 47625955
+            "population": 47625955,
+            "social_networks": {
+                "facebook": 28000000,
+                "X": 3000000,
+                "Instagram": 6700000,
+                "YouTube": 15000000,
+                "TikTok": 0
+            }
         },
         {
             "year": 2017,
-            "population": 48351671
+            "population": 48351671,
+            "social_networks": {
+                "facebook": 296000000,
+                "X": 3400000,
+                "Instagram": 8800000,
+                "YouTube": 16000000,
+                "TikTok": 0
+            }
         },
         {
             "year": 2018,
-            "population": 49276961
+            "population": 49276961,
+            "social_networks": {
+                "facebook": 30500000,
+                "X": 3600000,
+                "Instagram": 12000000,
+                "YouTube": 23000000,
+                "TikTok": 2000000
+            }
         },
         {
             "year": 2019,
-            "population": 50187406
+            "population": 50187406,
+            "social_networks": {
+                "facebook": 31500000,
+                "X": 3900000,
+                "Instagram": 12000000,
+                "YouTube": 23000000,
+                "TikTok": 5000000
+            }
         },
         {
             "year": 2020,
-            "population": 50930662
+            "population": 50930662,
+            "social_networks": {
+                "facebook": 32000000,
+                "X": 4000000,
+                "Instagram": 15000000,
+                "YouTube": 25000000,
+                "TikTok": 11000000
+            }
         },
         {
             "year": 2021,
-            "population": 51516562
+            "population": 51516562,
+            "social_networks": {
+                "facebook": 32100000,
+                "X": 4200000,
+                "Instagram": 18400000,
+                "YouTube": 28000000,
+                "TikTok": 17000000
+            }
         },
         {
             "year": 2022,
-            "population": 51874024
+            "population": 51874024,
+            "social_networks": {
+                "facebook": 32000000,
+                "X": 4800000,
+                "Instagram": 19000000,
+                "YouTube": 30000000,
+                "TikTok": 23000000
+            }
         },
         {
             "year": 2023,
-            "population": 52220000
+            "population": 52220000,
+            "social_networks": {
+                "facebook": 31800000,
+                "X": 5600000,
+                "Instagram": 20000000,
+                "YouTube": 30300000,
+                "TikTok": 27000000
+            }
         },
         {
             "year": 2024,
-            "population": 52600000
+            "population": 52600000,
+            "social_networks": {
+                "facebook": 31800000,
+                "X": 5600000,
+                "Instagram": 20000000,
+                "YouTube": 30300000,
+                "TikTok": 27000000
+            }
         }
     ]
     
@@ -1458,5 +1521,27 @@ def followers_uniques(request):
         "date_stat": year_request,
         "poblation": population,
         "unique_followers": total_followers,
-        "percentage_penetration": percentage_penetration
+        "percentage_penetration": percentage_penetration,
+        "social_networks": {
+            "Facebook":{
+                "unique_followers": 10,
+                "percentage_penetration": 20
+            },
+            "X":{
+                "unique_followers": 10,
+                "percentage_penetration": 20
+            },
+            "Instagram":{
+                "unique_followers": 10,
+                "percentage_penetration": 20
+            },
+            "YouTube":{
+                "unique_followers": 10,
+                "percentage_penetration": 20
+            },
+            "TikTok":{
+                "unique_followers": 10,
+                "percentage_penetration": 20
+            }
+        }  
     })
