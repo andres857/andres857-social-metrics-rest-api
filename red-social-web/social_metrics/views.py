@@ -1516,10 +1516,6 @@ def followers_uniques(request):
         
     percentage_penetration = round(total_followers / population *100);
 
-    print("año: "+ year_request)
-    print("total " + total_followers)
-    print("total " + percentage_penetration)
-
     return Response({
         # "data": unique_followers,
         "date_stat": year_request,
@@ -1529,23 +1525,23 @@ def followers_uniques(request):
         "social_networks": {
             "Facebook":{
                 "unique_followers": 10,
-                "percentage_penetration": 20
+                "percentage_penetration": 20.40
             },
             "X":{
                 "unique_followers": 10,
-                "percentage_penetration": 20
+                "percentage_penetration": 44.6
             },
             "Instagram":{
                 "unique_followers": 10,
-                "percentage_penetration": 20
+                "percentage_penetration": 12
             },
             "YouTube":{
                 "unique_followers": 10,
-                "percentage_penetration": 20
+                "percentage_penetration": 4.9
             },
             "TikTok":{
                 "unique_followers": 10,
-                "percentage_penetration": 20
+                "percentage_penetration": 1.7
             }
         }  
     })
