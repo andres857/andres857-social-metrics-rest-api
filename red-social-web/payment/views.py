@@ -227,7 +227,7 @@ def payment_failure(request):
 
 @api_view(['GET'])
 def pricing(request):
-    plans = SubscriptionPlan.objects.all().values('name', 'description', 'price', 'duration_days', 'title', 'imageCover')
+    plans = SubscriptionPlan.objects.all().values('id', 'name', 'description', 'price', 'duration_days', 'title', 'imageCover')
     return Response(list(plans))
 
 @csrf_exempt
