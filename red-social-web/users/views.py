@@ -18,8 +18,6 @@ from django.db import IntegrityError
 
 
     
-    
-    
 class ListUsers(APIView):
     """
     View to list all users in the system.
@@ -27,18 +25,13 @@ class ListUsers(APIView):
     * Requires token authentication.
     * Only admin users are able to access this view.
     """
-    #authentication_classes = [authentication.TokenAuthentication]
-    #permission_classes = [permissions.IsAdminUser]
-
+    # authentication_classes = [authentication.TokenAuthentication]
+    # permission_classes = [permissions.IsAdminUser]
     def get(self, request, format=None):
-        """
-        Return a list of all users.
-        """
-        users = User.objects.prefetch_related('user_roles__role').all()
+        users = User.objects.prefetch_related('user_roles__role', 'subscriptions').all()
         serializer = UserSerializer(users, many=True)
-        print(serializer.data)
         return Response(serializer.data)
-    
+
 
 class CreateUser(APIView):
     #permission_classes = [IsAdminUser]  # Solo los administradores pueden crear usuarios
@@ -100,7 +93,7 @@ class DeleteUser(APIView):
 
 class UpdateUser(APIView):
     #permission_classes = [IsAdminUser]
-
+    
     def put(self, request, user_id):
         try:
             user = get_object_or_404(User, id=user_id)
@@ -108,6 +101,13 @@ class UpdateUser(APIView):
             
             if serializer.is_valid():
                 serializer.save()
+                # También actualiza el estado de la suscripción si está presente
+                if 'subscription' in request.data:
+                    subscription_data = request.data.get('subscription')
+                    Subscription.objects.update_or_create(
+                        user=user,
+                        defaults={'plan_id': subscription_data}
+                    )
                 return Response({
                     "message": "Usuario actualizado exitosamente",
                     "user": serializer.data
@@ -129,6 +129,3 @@ class UpdateUser(APIView):
                 "message": "Error al actualizar usuario",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def patch(self, request, user_id):
-        return self.put(request, user_id)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SubscriptionPlan, PaymentTokenDiscount
+from .models import Subscription, SubscriptionPlan, PaymentTokenDiscount
 
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
