@@ -1649,42 +1649,53 @@ def followers_uniques_by_social_networks(request):
     unique_followers['unique_followers']['YouTube'] = round(unique_followers['unique_followers']['YouTube'] * (correction_factor_youtube/100))
     unique_followers['unique_followers']['Tiktok'] = round(unique_followers['unique_followers']['Tiktok'] * (correction_factor_tiktok/100))
 
+
+    print(unique_followers)
     # Sumar todos los valores del diccionario
     total_followers = sum(unique_followers['unique_followers'].values())
 
+
     for year in poblation_by_year:
         if year['year'] == year_request:
+            penetration_facebook = round(unique_followers['unique_followers']['facebook']/year['social_networks']['facebook'] * 100, 2)
+            penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['facebook'] * 100, 2)
+            penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['facebook'] * 100, 2)
+            penetration_YouTube = round(unique_followers['unique_followers']['YouTube']/year['social_networks']['facebook'] * 100, 2)
+            penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['facebook'] * 100, 2)
+
+            print ('fb', penetration_facebook )
+            print ('X', penetration_X )
+            print ('Instagram', penetration_Instagram )
+            print ('YouTube', penetration_YouTube )
+            print ('TikTok', penetration_Tiktok )
+
             population = year['population']
             break
-        
+
     percentage_penetration = round(total_followers / population *100);
 
     return Response({
-        # "data": unique_followers,
         "date_stat": year_request,
-        "poblation": population,
-        "unique_followers": total_followers,
-        "percentage_penetration": percentage_penetration,
         "social_networks": {
-            "Facebook":{
-                "unique_followers": 10,
-                "percentage_penetration": 20.40
+            "facebook":{
+                "unique_followers": unique_followers['unique_followers']['facebook'],
+                "percentage_penetration": penetration_facebook
             },
             "X":{
-                "unique_followers": 10,
-                "percentage_penetration": 44.6
+                "unique_followers": unique_followers['unique_followers']['X'],
+                "percentage_penetration": penetration_X
             },
             "Instagram":{
-                "unique_followers": 10,
-                "percentage_penetration": 12
+                "unique_followers": unique_followers['unique_followers']['Instagram'],
+                "percentage_penetration": penetration_Instagram
             },
             "YouTube":{
-                "unique_followers": 10,
-                "percentage_penetration": 4.9
+                "unique_followers": unique_followers['unique_followers']['YouTube'],
+                "percentage_penetration": penetration_YouTube
             },
             "TikTok":{
-                "unique_followers": 10,
-                "percentage_penetration": 2
+                "unique_followers": unique_followers['unique_followers']['Tiktok'],
+                "percentage_penetration": penetration_Tiktok
             }
         }  
     })
