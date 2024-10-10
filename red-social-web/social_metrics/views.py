@@ -1657,14 +1657,15 @@ def followers_uniques_by_social_networks(request):
 
     for year in poblation_by_year:
         if year['year'] == year_request:
+            print('item',year)
             penetration_facebook = round(unique_followers['unique_followers']['facebook']/year['social_networks']['facebook'] * 100, 2)
-            penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['facebook'] * 100, 2)
-            penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['facebook'] * 100, 2)
-            penetration_YouTube = round(unique_followers['unique_followers']['YouTube']/year['social_networks']['facebook'] * 100, 2)
-            penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['facebook'] * 100, 2)
+            penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['X'] * 100, 2)
+            penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['Instagram'] * 100, 2)
+            penetration_YouTube = round(unique_followers['unique_followers']['YouTube']/year['social_networks']['YouTube'] * 100, 2)
+            penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['YouTube'] * 100, 2)
 
             print ('fb', penetration_facebook )
-            print ('X', penetration_X )
+            print ('X', 'followers_unique:',unique_followers['unique_followers']['X'],"",penetration_X )
             print ('Instagram', penetration_Instagram )
             print ('YouTube', penetration_YouTube )
             print ('TikTok', penetration_Tiktok )
@@ -1677,7 +1678,7 @@ def followers_uniques_by_social_networks(request):
     return Response({
         "date_stat": year_request,
         "social_networks": {
-            "facebook":{
+            "Facebook":{
                 "unique_followers": unique_followers['unique_followers']['facebook'],
                 "percentage_penetration": penetration_facebook
             },
