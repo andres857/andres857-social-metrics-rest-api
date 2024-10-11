@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
 from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ObjectDoesNotExist
 
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
@@ -378,7 +379,12 @@ def get_token_details(request, token):
 
 @api_view(['PUT'])
 def update_token(request, token):
-    token_discount = get_object_or_404(PaymentTokenDiscount, token=token)
+    print(f"Intentando actualizar token: {token}")
+    try:
+        token_discount = PaymentTokenDiscount.objects.get(id=token)
+    except ObjectDoesNotExist:
+        return Response({"error": f"No se encontró ningún token de descuento con el valor '{token}'."}, 
+                        status=status.HTTP_404_NOT_FOUND)
     
     # Extraer los datos del request
     data = request.data
