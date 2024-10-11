@@ -373,7 +373,7 @@ def get_token_details(request, token):
         return Response({"error": "Token no encontrado"}, status=404)
     
     
-
+@csrf_exempt
 @login_required
 def delete_token(request, token):
     # Verifica si el usuario tiene los roles necesarios
