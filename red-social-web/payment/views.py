@@ -320,6 +320,7 @@ def create_token_endpoint(request):
         plan_ids = data.get('plan_ids')
         start_date = data.get('start_date')
         end_date = data.get('end_date')
+        title = data.get('title')
 
         print("Discount:", discount)
         print("Plan IDs:", plan_ids)
@@ -333,11 +334,13 @@ def create_token_endpoint(request):
             discount=discount,
             plan_ids=plan_ids,
             start_date_str=start_date,
-            end_date_str=end_date
+            end_date_str=end_date,
+            title=title
         )
 
         return JsonResponse({
             "success": True,
+            "title": discount_token.title,
             "token": discount_token.token,
             "discount": discount_token.discount,
             "start_date": discount_token.start_date,
