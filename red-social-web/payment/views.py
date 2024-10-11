@@ -361,7 +361,7 @@ def list_tokens_endpoint(request):
     serializer = PaymentTokenDiscountSerializer(tokens, many=True)
     return Response({"tokens": serializer.data})
 
-
+@csrf_exempt
 @api_view(['GET'])
 def get_token_details(request, token):
     try:
