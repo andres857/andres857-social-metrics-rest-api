@@ -50,6 +50,9 @@ from django.utils.encoding import force_str
 from django.middleware.csrf import get_token
 from django.db import IntegrityError
 
+from django.contrib.sessions.models import Session
+from datetime import datetime
+
 from django.core.exceptions import ValidationError
 import logging
 from django.utils import timezone
@@ -250,13 +253,16 @@ class LoginView(APIView):
         password = request.data.get('password')
         
         if email is None or password is None:
-            return Response({'error': 'Please provide both email and password'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Please provide both email and password'}, status=status.HTTP_400_BAD_REQUEST)
         
         user = authenticate(request, username=email, password=password)
         
         if user is not None:
             if user.is_active:
+                # Eliminar todas las sesiones anteriores del usuario
+                self.logout_previous_sessions(user)
+                
+                # Iniciar la nueva sesión
                 login(request, user)
                 serializer = UserSerializer(user)
                 return Response({
@@ -264,11 +270,20 @@ class LoginView(APIView):
                     "detail": "Successfully logged in."
                 })
             else:
-                return Response({"detail": "User account is disabled."},
-                                status=status.HTTP_403_FORBIDDEN)
+                return Response({"detail": "User account is disabled."}, status=status.HTTP_403_FORBIDDEN)
         else:
-            return Response({"detail": "Invalid credentials."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def logout_previous_sessions(self, user):
+        """ Cierra todas las sesiones activas anteriores del usuario. """
+        # Obtener todas las sesiones activas
+        sessions = Session.objects.filter(expire_date__gte=datetime.now())
+        for session in sessions:
+            # Obtener el ID del usuario almacenado en la sesión
+            session_data = session.get_decoded()
+            if session_data.get('_auth_user_id') == str(user.id):
+                # Cerrar sesión eliminando la sesión activa
+                session.delete()
 
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
