@@ -1,11 +1,10 @@
 import os
 from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
 from rest_framework.response import Response
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
@@ -20,6 +19,9 @@ from django.http import HttpResponseBadRequest
 from django.conf import settings
 
 from .serializers import SubscriptionPlanSerializer, PaymentTokenDiscountSerializer
+
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 from rest_framework import status
 
@@ -377,7 +379,7 @@ def get_token_details(request, token):
     except PaymentTokenDiscount.DoesNotExist:
         return Response({"error": "Token no encontrado"}, status=404)
 
-@csrf_exempt
+@ensure_csrf_cookie
 @api_view(['PUT'])
 def update_token(request, token):
     print(f"Intentando actualizar token: {token}")
