@@ -375,6 +375,30 @@ def get_token_details(request, token):
         })
     except PaymentTokenDiscount.DoesNotExist:
         return Response({"error": "Token no encontrado"}, status=404)
+
+@api_view(['PUT'])
+def update_token(request, token):
+    token_discount = get_object_or_404(PaymentTokenDiscount, token=token)
+    
+    # Extraer los datos del request
+    data = request.data
+    
+    # Actualizar los campos simples
+    token_discount.title = data.get('title', token_discount.title)
+    token_discount.discount = data.get('discount', token_discount.discount)
+    token_discount.start_date = data.get('start_date', token_discount.start_date)
+    token_discount.end_date = data.get('end_date', token_discount.end_date)
+    
+    # Actualizar los planes de suscripción
+    if 'plan_ids' in data:
+        plan_ids = data['plan_ids']
+        subscription_plans = SubscriptionPlan.objects.filter(id__in=plan_ids)
+        token_discount.subscription_plans.set(subscription_plans)
+    
+    token_discount.save()
+    
+    serializer = PaymentTokenDiscountSerializer(token_discount)
+    return Response(serializer.data, status=status.HTTP_200_OK)
     
     
 @csrf_exempt
