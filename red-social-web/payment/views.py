@@ -377,6 +377,7 @@ def get_token_details(request, token):
     except PaymentTokenDiscount.DoesNotExist:
         return Response({"error": "Token no encontrado"}, status=404)
 
+@csrf_exempt
 @api_view(['PUT'])
 def update_token(request, token):
     print(f"Intentando actualizar token: {token}")
