@@ -283,7 +283,7 @@ def generate_secure_token(length=32):
     # Genera un token aleatorio y seguro de la longitud especificada
     return secrets.token_urlsafe(length)
 
-def create_discount_token(discount, plan_ids, start_date_str, end_date_str):
+def create_discount_token(discount, plan_ids, start_date_str, end_date_str, title):
     # Parseamos las fechas de inicio y fin a objetos datetime
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
     end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
@@ -299,7 +299,8 @@ def create_discount_token(discount, plan_ids, start_date_str, end_date_str):
         token=token_str,
         discount=discount,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        title=title
     )
 
     # Asociamos los planes al token
