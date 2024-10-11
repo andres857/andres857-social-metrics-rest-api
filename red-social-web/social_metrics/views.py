@@ -1514,7 +1514,7 @@ def followers_uniques(request):
             population = year['population']
             break
         
-    percentage_penetration = round(total_followers / population *100);
+    percentage_penetration = round(total_followers / population *100)
 
     return Response({
         # "data": unique_followers,
@@ -1637,24 +1637,6 @@ def followers_uniques_by_social_networks(request):
     unique_followers = all_stats.data
     del unique_followers['stats']
 
-    correction_factor_facebook = 100
-    correction_factor_x = 65
-    correction_factor_instagram = 50 
-    correction_factor_tiktok = 80
-    correction_factor_youtube = 50
-
-    unique_followers['unique_followers']['facebook'] = round(unique_followers['unique_followers']['facebook'] * (correction_factor_facebook/100))
-    unique_followers['unique_followers']['X'] = round(unique_followers['unique_followers']['X'] * (correction_factor_x/100))
-    unique_followers['unique_followers']['Instagram'] = round(unique_followers['unique_followers']['Instagram'] * (correction_factor_instagram/100))
-    unique_followers['unique_followers']['YouTube'] = round(unique_followers['unique_followers']['YouTube'] * (correction_factor_youtube/100))
-    unique_followers['unique_followers']['Tiktok'] = round(unique_followers['unique_followers']['Tiktok'] * (correction_factor_tiktok/100))
-
-
-    print(unique_followers)
-    # Sumar todos los valores del diccionario
-    total_followers = sum(unique_followers['unique_followers'].values())
-
-
     for year in poblation_by_year:
         if year['year'] == year_request:
             print('item',year)
@@ -1662,18 +1644,19 @@ def followers_uniques_by_social_networks(request):
             penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['X'] * 100, 2)
             penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['Instagram'] * 100, 2)
             penetration_YouTube = round(unique_followers['unique_followers']['YouTube']/year['social_networks']['YouTube'] * 100, 2)
-            penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['YouTube'] * 100, 2)
+            
+            if (year['social_networks']['TikTok'] != 0):
+                penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['TikTok'] * 100, 2)
+            else:
+                penetration_Tiktok = 0
 
             print ('fb', penetration_facebook )
-            print ('X', 'followers_unique:',unique_followers['unique_followers']['X'],"",penetration_X )
+            print ('X', 'followers_unique:',unique_followers['unique_followers']['X'],"seguidores by year",year['social_networks']['X'], penetration_X )
             print ('Instagram', penetration_Instagram )
             print ('YouTube', penetration_YouTube )
             print ('TikTok', penetration_Tiktok )
 
-            population = year['population']
             break
-
-    percentage_penetration = round(total_followers / population *100);
 
     return Response({
         "date_stat": year_request,
