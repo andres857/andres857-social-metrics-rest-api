@@ -381,8 +381,6 @@ def get_token_details(request, token):
 
 @ensure_csrf_cookie
 @api_view(['PUT'])
-@authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
 def update_token(request, token):
     print(f"Intentando actualizar token: {token}")
     try:
