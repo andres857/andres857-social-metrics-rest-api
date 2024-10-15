@@ -15,10 +15,11 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseBadRequest
+from django.core.exceptions import ValidationError
 
 from django.conf import settings
 
-from .serializers import SubscriptionPlanSerializer, PaymentTokenDiscountSerializer
+from .serializers import SubscriptionPlanSerializer, PaymentTokenDiscountSerializer, PaymentTokenAccessSerializer
 
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -33,7 +34,7 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 
-from .models import Subscription, SubscriptionPlan, PaymentTokenDiscount
+from .models import Subscription, SubscriptionPlan, PaymentTokenDiscount, PaymentTokensAccess
 
 # Mercado Pago SDK
 import mercadopago
@@ -162,6 +163,62 @@ def create_preference(request):
             "error": "Error inesperado",
             "details": str(e)
         }, status=500)
+        
+
+from rest_framework.decorators import api_view, permission_classes
+
+@csrf_exempt
+@api_view(['POST'])
+def register_subscription(request):
+    user_id = request.data.get('user_id')
+    token = request.data.get('token')
+
+    if not all([user_id, token]):
+        return Response({"success": False, "message": "Missing required fields"}, status=400)
+
+    try:
+        user = User.objects.get(id=user_id)
+        token_obj = PaymentTokensAccess.objects.get(token=token, is_active=True)
+        
+        subscriptions_created = []
+        
+        for plan in token_obj.subscription_plans.all():
+            # Check if subscription already exists
+            existing_sub = Subscription.objects.filter(user=user, plan=plan, active=True).first()
+            if existing_sub:
+                continue  # Skip if subscription already exists
+            
+            # Create new subscription
+            start_date = timezone.now()
+            end_date = start_date + timedelta(days=180)  # 6 months subscription
+            
+            new_sub = Subscription.objects.create(
+                user=user,
+                plan=plan,
+                active=True,
+                start_date=start_date,
+                end_date=end_date,
+                status='approved'
+            )
+            subscriptions_created.append(plan.name)
+        
+        if subscriptions_created:
+            return Response({
+                "success": True, 
+                "message": f"Subscriptions registered successfully: {', '.join(subscriptions_created)}"
+            }, status=201)
+        else:
+            return Response({
+                "success": False, 
+                "message": "No new subscriptions were created. User might already have all associated subscriptions."
+            }, status=200)
+    
+    except User.DoesNotExist:
+        return Response({"success": False, "message": "User not found"}, status=404)
+    except PaymentTokensAccess.DoesNotExist:
+        return Response({"success": False, "message": "Invalid or inactive token"}, status=400)
+    except Exception as e:
+        return Response({"success": False, "message": str(e)}, status=500)
 
 
 @login_required
@@ -311,6 +368,40 @@ def create_discount_token(discount, plan_ids, start_date_str, end_date_str, titl
     
     return discount_token
 
+def create_access_token(is_active, plan_ids, start_date_str, end_date_str, title):
+    try:
+        # Parseamos las fechas de inicio y fin a objetos datetime
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+        # Obtenemos los planes usando sus IDs
+        plans = SubscriptionPlan.objects.filter(id__in=plan_ids)
+
+        if not plans.exists():
+            raise ValidationError("No se encontraron planes con los IDs proporcionados.")
+
+        # Genera un token seguro y único
+        token_str = generate_secure_token()  # Asegúrate de que esta función esté implementada
+
+        # Creamos el token de acceso
+        access_token = PaymentTokensAccess.objects.create(
+            token=token_str,
+            is_active=is_active,
+            start_date=start_date,
+            end_date=end_date,
+            title=title
+        )
+
+        # Asociamos los planes al token
+        access_token.subscription_plans.set(plans)
+
+        return access_token
+
+    except ValueError:
+        raise ValidationError("Formato de fecha incorrecto, debe ser 'YYYY-MM-DD'.")
+    except Exception as e:
+        raise ValidationError(f"Ocurrió un error al crear el token: {str(e)}")
+
 
 @csrf_exempt
 @require_POST
@@ -364,20 +455,83 @@ def list_tokens_endpoint(request):
     serializer = PaymentTokenDiscountSerializer(tokens, many=True)
     return Response({"tokens": serializer.data})
 
+@api_view(['GET'])
+def list_tokens_access(request):
+    tokensAccess = PaymentTokensAccess.objects.all()
+    serializerAccess = PaymentTokenAccessSerializer(tokensAccess, many=True)
+    return Response({"tokens": serializerAccess.data})
+
+@csrf_exempt
+@require_POST
+def create_token_access(request):
+    try:
+        data = json.loads(request.body)
+        
+        print("Data received:", data)  # Depuración
+
+        title = data.get('title')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        is_active = data.get('is_active')
+        plan_ids = data.get('plan_ids')
+
+        # if not title or not plan_ids or not start_date or not end_date:
+        #     return JsonResponse({"error": "Los campos 'title', 'plan_ids', 'start_date' y 'end_date' son requeridos."}, status=400)
+
+        access_token = create_access_token(
+            is_active=is_active,
+            plan_ids=plan_ids,
+            start_date_str=start_date,
+            end_date_str=end_date,
+            title=title
+        )
+
+        return JsonResponse({
+            "success": True,
+            "title": access_token.title,
+            "token": access_token.token,
+            "is_active": access_token.is_active,
+            "start_date": access_token.start_date,
+            "end_date": access_token.end_date,
+            "subscription_plans": [plan.name for plan in access_token.subscription_plans.all()]
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Formato JSON inválido."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
 @api_view(['GET'])
 def get_token_details(request, token):
     try:
+        # Intentar encontrar el token en PaymentTokenDiscount
         token_discount = PaymentTokenDiscount.objects.get(token=token)
-        # Serializar los planes asociados
-        plans = [plan.name for plan in token_discount.subscription_plans.all()]  # Cambiar suscripName por name
+        plans = [plan.name for plan in token_discount.subscription_plans.all()]
         return Response({
             "token": token_discount.token,
             "discount": token_discount.discount,
             "subscription_plans": plans,
+            "is_access_token": False
         })
     except PaymentTokenDiscount.DoesNotExist:
-        return Response({"error": "Token no encontrado"}, status=404)
+        # Si no se encuentra el token en PaymentTokenDiscount, buscar en PaymentTokensAccess
+        try:
+            token_access = PaymentTokensAccess.objects.get(token=token)
+            if token_access.is_active:
+                plans = [plan.name for plan in token_access.subscription_plans.all()]
+                return JsonResponse({
+                    "token": token_access.token,
+                    "subscription_plans": plans,
+                    "is_access_token": True,
+                    "redirect": "/access/register"
+                })
+            else:
+                return Response({"error": "El token de acceso ha expirado o no está activo"}, status=400)
+        except PaymentTokensAccess.DoesNotExist:
+            # Si no se encuentra en ninguno de los modelos
+            return Response({"error": "Token no encontrado"}, status=404)
 
 # @ensure_csrf_cookie
 @csrf_exempt

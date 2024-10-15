@@ -73,3 +73,18 @@ class PaymentTokenDiscount(models.Model):
 
     def __str__(self):
         return self.token
+    
+class PaymentTokensAccess(models.Model):
+    title = models.CharField(max_length=100)
+    token = models.CharField(max_length=100, unique=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    subscription_plans = models.ManyToManyField(SubscriptionPlan, related_name='tokens')
+    
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = "Payment Token Access"
+        verbose_name_plural = "Payment Tokens Access"
