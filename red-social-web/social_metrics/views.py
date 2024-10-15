@@ -1683,3 +1683,163 @@ def followers_uniques_by_social_networks(request):
             }
         }  
     })
+
+
+@api_view(['GET'])
+def followers_uniques_by_social_networks_compensacion(request):
+    date = request.query_params.get('stats_date')
+    date = datetime.strptime(date, "%Y-%m-%d").date()
+    year_request = date.year
+    
+    poblation_by_year = [
+        {
+            "year": 2016,
+            "population": 17000000,
+            "social_networks": {
+                "facebook": 28000000,
+                "X": 3000000,
+                "Instagram": 6700000,
+                "YouTube": 15000000,
+                "TikTok": 0
+            }
+        },
+        {
+            "year": 2017,
+            "population": 17500000,
+            "social_networks": {
+                "facebook": 296000000,
+                "X": 3400000,
+                "Instagram": 8800000,
+                "YouTube": 16000000,
+                "TikTok": 0
+            }
+        },
+        {
+            "year": 2018,
+            "population": 18000000,
+            "social_networks": {
+                "facebook": 30500000,
+                "X": 3600000,
+                "Instagram": 12000000,
+                "YouTube": 23000000,
+                "TikTok": 2000000
+            }
+        },
+        {
+            "year": 2019,
+            "population": 18500000,
+            "social_networks": {
+                "facebook": 31500000,
+                "X": 3900000,
+                "Instagram": 12000000,
+                "YouTube": 23000000,
+                "TikTok": 5000000
+            }
+        },
+        {
+            "year": 2020,
+            "population": 19600000,
+            "social_networks": {
+                "facebook": 32000000,
+                "X": 4000000,
+                "Instagram": 15000000,
+                "YouTube": 25000000,
+                "TikTok": 11000000
+            }
+        },
+        {
+            "year": 2021,
+            "population": 19900000,
+            "social_networks": {
+                "facebook": 32100000,
+                "X": 4200000,
+                "Instagram": 18400000,
+                "YouTube": 28000000,
+                "TikTok": 17000000
+            }
+        },
+        {
+            "year": 2022,
+            "population": 20800000,
+            "social_networks": {
+                "facebook": 32000000,
+                "X": 4800000,
+                "Instagram": 19000000,
+                "YouTube": 30000000,
+                "TikTok": 23000000
+            }
+        },
+        {
+            "year": 2023,
+            "population": 21000000,
+            "social_networks": {
+                "facebook": 31800000,
+                "X": 5600000,
+                "Instagram": 20000000,
+                "YouTube": 30300000,
+                "TikTok": 27000000
+            }
+        },
+        {
+            "year": 2024,
+            "population": 21000000,
+            "social_networks": {
+                "facebook": 31800000,
+                "X": 5600000,
+                "Instagram": 20000000,
+                "YouTube": 30300000,
+                "TikTok": 27000000
+            }
+        }
+    ]
+    
+    all_stats = get_stats_all_categories_by_date(request)
+    unique_followers = all_stats.data
+    del unique_followers['stats']
+
+    for year in poblation_by_year:
+        if year['year'] == year_request:
+            print('item',year)
+            penetration_facebook = round(unique_followers['unique_followers']['facebook']/year['social_networks']['facebook'] * 100, 2)
+            penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['X'] * 100, 2)
+            penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['Instagram'] * 100, 2)
+            penetration_YouTube = round(unique_followers['unique_followers']['YouTube']/year['social_networks']['YouTube'] * 100, 2)
+            
+            if (year['social_networks']['TikTok'] != 0):
+                penetration_Tiktok = round(unique_followers['unique_followers']['Tiktok']/year['social_networks']['TikTok'] * 100, 2)
+            else:
+                penetration_Tiktok = 0
+
+            print ('fb', penetration_facebook )
+            print ('X', 'followers_unique:',unique_followers['unique_followers']['X'],"seguidores by year",year['social_networks']['X'], penetration_X )
+            print ('Instagram', penetration_Instagram )
+            print ('YouTube', penetration_YouTube )
+            print ('TikTok', penetration_Tiktok )
+
+            break
+
+    return Response({
+        "date_stat": year_request,
+        "social_networks": {
+            "Facebook":{
+                "unique_followers": unique_followers['unique_followers']['facebook'],
+                "percentage_penetration": penetration_facebook
+            },
+            "X":{
+                "unique_followers": unique_followers['unique_followers']['X'],
+                "percentage_penetration": penetration_X
+            },
+            "Instagram":{
+                "unique_followers": unique_followers['unique_followers']['Instagram'],
+                "percentage_penetration": penetration_Instagram
+            },
+            "YouTube":{
+                "unique_followers": unique_followers['unique_followers']['YouTube'],
+                "percentage_penetration": penetration_YouTube
+            },
+            "TikTok":{
+                "unique_followers": unique_followers['unique_followers']['Tiktok'],
+                "percentage_penetration": penetration_Tiktok
+            }
+        }  
+    })
