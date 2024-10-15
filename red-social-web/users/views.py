@@ -8,10 +8,14 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.views import APIView
 
-from django.db import IntegrityError
+from django.db import transaction, IntegrityError
+
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+
 from django.shortcuts import get_object_or_404
 
 from .serializers import UserSerializer, CreateUserSerializer, UpdateUserSerializer
+from payment.models import Subscription, SubscriptionPlan, PaymentTokenDiscount
 
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
@@ -90,33 +94,29 @@ class DeleteUser(APIView):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-
 class UpdateUser(APIView):
-    #permission_classes = [IsAdminUser]
-    
     def put(self, request, user_id):
         try:
-            user = get_object_or_404(User, id=user_id)
-            serializer = UpdateUserSerializer(user, data=request.data, partial=True)
-            
-            if serializer.is_valid():
-                serializer.save()
-                # También actualiza el estado de la suscripción si está presente
-                if 'subscription' in request.data:
-                    subscription_data = request.data.get('subscription')
-                    Subscription.objects.update_or_create(
-                        user=user,
-                        defaults={'plan_id': subscription_data}
-                    )
-                return Response({
-                    "message": "Usuario actualizado exitosamente",
-                    "user": serializer.data
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    "message": "Error en los datos proporcionados",
-                    "errors": serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                user = get_object_or_404(User, id=user_id)
+                serializer = UpdateUserSerializer(user, data=request.data, partial=True)
+                
+                if serializer.is_valid():
+                    updated_user = serializer.save()
+                    
+                    # Handle subscriptions
+                    if 'subscriptions' in request.data:
+                        self.handle_subscriptions(updated_user, request.data['subscriptions'])
+                    
+                    return Response({
+                        "message": "Usuario actualizado exitosamente",
+                        "user": UpdateUserSerializer(updated_user).data
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        "message": "Error en los datos proporcionados",
+                        "errors": serializer.errors
+                    }, status=status.HTTP_400_BAD_REQUEST)
         
         except IntegrityError as e:
             return Response({
@@ -129,3 +129,19 @@ class UpdateUser(APIView):
                 "message": "Error al actualizar usuario",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def handle_subscriptions(self, user, subscriptions_data):
+        # Remove subscriptions not present in the new data
+        user.subscriptions.exclude(plan__id__in=[sub['plan'] for sub in subscriptions_data]).delete()
+
+        for sub_data in subscriptions_data:
+            plan = SubscriptionPlan.objects.get(id=sub_data['plan'])
+            subscription, created = Subscription.objects.update_or_create(
+                user=user,
+                plan=plan,
+                defaults={
+                    'active': sub_data.get('active', False),
+                    'start_date': sub_data.get('start_date'),
+                    'end_date': sub_data.get('end_date')
+                }
+            )

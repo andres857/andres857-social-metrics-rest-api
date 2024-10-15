@@ -48,28 +48,28 @@ class CreateUserSerializer(serializers.ModelSerializer):
     
 
 class UpdateUserSerializer(serializers.ModelSerializer):
-    role = serializers.ChoiceField(choices=['user', 'admin', 'superadmin'], required=False)  # Ajusta según tus roles
+    role = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'first_name', 'last_name', 'phone', 'is_staff', 'role']  # Añade 'role' a los campos
+        fields = ['email', 'first_name', 'last_name', 'organization', 'is_active', 'role']
         extra_kwargs = {
             'email': {'required': False}
         }
 
     def update(self, instance, validated_data):
-        role = validated_data.pop('role', None)  # Obtén el rol si está presente
-        is_staff = validated_data.pop('is_staff', False)
+        role = validated_data.pop('role', None)
+        
+        if role:
+            # Assuming you have a UserRole model with a 'identifier' field
+            user_role, _ = UserRole.objects.get_or_create(identifier=role)
+            instance.user_roles.clear()
+            instance.user_roles.add(user_role)
 
-        # Lógica para activar is_staff o is_superuser según el rol
-        if role in ['admin', 'superadmin']:
-            instance.is_staff = True
-            instance.is_superuser = (role == 'superadmin')  # Activa is_superuser solo si es superadmin
-        else:
-            instance.is_staff = False
-            instance.is_superuser = False
+            # Update is_staff and is_superuser based on role
+            instance.is_staff = role in ['8np49Ab#', 'Ca0-T17A']
+            instance.is_superuser = (role == 'Ca0-T17A')
 
-        # Actualiza los demás campos
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
