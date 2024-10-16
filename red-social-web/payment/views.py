@@ -8,6 +8,9 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -214,6 +217,57 @@ def register_subscription(request):
         return Response({"success": False, "message": "Invalid or inactive token"}, status=400)
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
+    
+@csrf_exempt
+class RegisterSubscription(APIView):
+    permission_classes = [AllowAny]
+
+    @method_decorator(ensure_csrf_cookie)
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        token = request.data.get('token')
+
+        if not all([user_id, token]):
+            return Response({"success": False, "message": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+            token_obj = PaymentTokensAccess.objects.get(token=token, is_active=True)
+            
+            subscriptions_created = []
+            
+            for plan in token_obj.subscription_plans.all():
+                # Check if subscription already exists
+                existing_sub = Subscription.objects.filter(user=user, plan=plan, active=True).first()
+                if existing_sub:
+                    continue  # Skip if subscription already exists
+                
+                # Create new subscription
+                start_date = timezone.now()
+                end_date = start_date + timedelta(days=180)  # 6 months subscription
+                
+                new_sub = Subscription.objects.create(
+                    user=user,
+                    plan=plan,
+                    active=True,
+                    start_date=start_date,
+                    end_date=end_date,
+                    status='approved'
+                )
+                subscriptions_created.append(plan.name)
+            
+            if subscriptions_created:
+                return Response({
+                    "success": True, 
+                    "message": f"Subscriptions registered successfully: {', '.join(subscriptions_created)}"
+                }, status=status.HTTP_201_CREATED)
+        
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except PaymentTokensAccess.DoesNotExist:
+            return Response({"success": False, "message": "Invalid or inactive token"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @login_required
