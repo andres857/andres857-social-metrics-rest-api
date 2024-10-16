@@ -591,6 +591,7 @@ def get_token_details(request, token):
             return Response({"error": "Token no encontrado"}, status=404)
 
 # @ensure_csrf_cookie
+@api_view(['PUT'])
 @csrf_exempt
 @login_required
 def update_token(request, token):
