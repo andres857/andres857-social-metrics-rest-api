@@ -218,11 +218,7 @@ def register_subscription(request):
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
     
-@csrf_exempt
-class RegisterSubscription(APIView):
-    permission_classes = [AllowAny]
-
-    @method_decorator(ensure_csrf_cookie)
+class RegisterSubscriptionUser(APIView):
     def post(self, request):
         user_id = request.data.get('user_id')
         token = request.data.get('token')
@@ -237,14 +233,12 @@ class RegisterSubscription(APIView):
             subscriptions_created = []
             
             for plan in token_obj.subscription_plans.all():
-                # Check if subscription already exists
                 existing_sub = Subscription.objects.filter(user=user, plan=plan, active=True).first()
                 if existing_sub:
-                    continue  # Skip if subscription already exists
+                    continue
                 
-                # Create new subscription
                 start_date = timezone.now()
-                end_date = start_date + timedelta(days=180)  # 6 months subscription
+                end_date = start_date + timedelta(days=180)
                 
                 new_sub = Subscription.objects.create(
                     user=user,
@@ -268,7 +262,6 @@ class RegisterSubscription(APIView):
             return Response({"success": False, "message": "Invalid or inactive token"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @login_required
 @require_GET

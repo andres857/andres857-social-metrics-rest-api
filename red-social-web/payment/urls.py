@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 
-from .views import RegisterSubscription
+from .views import RegisterSubscriptionUser
 
 app_name = 'payment'
 
@@ -23,7 +23,7 @@ urlpatterns = [
     path('tokens/access/<str:token>/', views.get_token_details, name='get_token_access_details'),
     path('tokens/update/access/<str:token>/', views.update_token, name='update_token_access'),
     path('tokens/access/delete/<str:token>/', views.delete_token, name='delete_token_access'),
-    path('register-subscription-user/', RegisterSubscription, name='register_subscription'),
+    path('register-subscription-user/', RegisterSubscriptionUser.as_view(), name='register_subscription_user'),
     
     
     # Nuevas rutas para los planes de suscripción
