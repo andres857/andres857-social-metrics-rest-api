@@ -217,7 +217,8 @@ def register_subscription(request):
         return Response({"success": False, "message": "Invalid or inactive token"}, status=400)
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
-    
+
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterSubscriptionUser(APIView):
     def post(self, request):
         user_id = request.data.get('user_id')
