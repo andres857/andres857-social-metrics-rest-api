@@ -601,14 +601,19 @@ def update_token(request, token):
     if not user_roles.exists():
         raise PermissionDenied("No tienes permiso para realizar esta acción.")
     
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
+    else:
+        data = request.POST
+    
     try:
         token_discount = PaymentTokenDiscount.objects.get(id=token)
     except ObjectDoesNotExist:
         return Response({"error": f"No se encontró ningún token de descuento con el valor '{token}'."}, 
                         status=status.HTTP_404_NOT_FOUND)
-    
-    # Extraer los datos del request
-    data = request.data
     
     # Actualizar los campos simples
     token_discount.title = data.get('title', token_discount.title)
