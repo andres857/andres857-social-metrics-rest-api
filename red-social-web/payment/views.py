@@ -171,13 +171,21 @@ def create_preference(request):
 from rest_framework.decorators import api_view, permission_classes
 
 @csrf_exempt
-@require_POST
+@login_required
 def register_subscription(request):
-    user_id = request.data.get('user_id')
-    token = request.data.get('token')
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
+    else:
+        data = request.POST
+
+    user_id = data.get('user_id')
+    token = data.get('token')
 
     if not all([user_id, token]):
-        return Response({"success": False, "message": "Missing required fields"}, status=400)
+        return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
 
     try:
         user = User.objects.get(id=user_id)
@@ -186,14 +194,12 @@ def register_subscription(request):
         subscriptions_created = []
         
         for plan in token_obj.subscription_plans.all():
-            # Check if subscription already exists
             existing_sub = Subscription.objects.filter(user=user, plan=plan, active=True).first()
             if existing_sub:
-                continue  # Skip if subscription already exists
+                continue
             
-            # Create new subscription
             start_date = timezone.now()
-            end_date = start_date + timedelta(days=180)  # 6 months subscription
+            end_date = start_date + timedelta(days=180)
             
             new_sub = Subscription.objects.create(
                 user=user,
@@ -206,17 +212,17 @@ def register_subscription(request):
             subscriptions_created.append(plan.name)
         
         if subscriptions_created:
-            return Response({
+            return JsonResponse({
                 "success": True, 
                 "message": f"Subscriptions registered successfully: {', '.join(subscriptions_created)}"
             }, status=201)
     
     except User.DoesNotExist:
-        return Response({"success": False, "message": "User not found"}, status=404)
+        return JsonResponse({"success": False, "message": "User not found"}, status=404)
     except PaymentTokensAccess.DoesNotExist:
-        return Response({"success": False, "message": "Invalid or inactive token"}, status=400)
+        return JsonResponse({"success": False, "message": "Invalid or inactive token"}, status=400)
     except Exception as e:
-        return Response({"success": False, "message": str(e)}, status=500)
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterSubscriptionUser(APIView):
