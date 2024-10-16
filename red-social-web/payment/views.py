@@ -167,8 +167,8 @@ def create_preference(request):
 
 from rest_framework.decorators import api_view, permission_classes
 
-@csrf_exempt
 @api_view(['POST'])
+@csrf_exempt
 def register_subscription(request):
     user_id = request.data.get('user_id')
     token = request.data.get('token')
@@ -207,11 +207,6 @@ def register_subscription(request):
                 "success": True, 
                 "message": f"Subscriptions registered successfully: {', '.join(subscriptions_created)}"
             }, status=201)
-        else:
-            return Response({
-                "success": False, 
-                "message": "No new subscriptions were created. User might already have all associated subscriptions."
-            }, status=200)
     
     except User.DoesNotExist:
         return Response({"success": False, "message": "User not found"}, status=404)
