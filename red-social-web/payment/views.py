@@ -167,7 +167,6 @@ def create_preference(request):
 
 from rest_framework.decorators import api_view, permission_classes
 
-@api_view(['POST'])
 @csrf_exempt
 def register_subscription(request):
     user_id = request.data.get('user_id')
