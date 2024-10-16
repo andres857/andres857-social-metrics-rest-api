@@ -218,9 +218,9 @@ def register_subscription(request):
             }, status=201)
         else:
             return JsonResponse({
-                "success": False, 
-                "message": "No new subscriptions were created"
-            }, status=200)
+                "success": True, 
+                "message": "New subscriptions created"
+            }, status=201)
     
     except User.DoesNotExist:
         return JsonResponse({"success": False, "message": "User not found"}, status=404)
