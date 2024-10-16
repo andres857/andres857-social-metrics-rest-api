@@ -1,5 +1,6 @@
 import os
 from django.shortcuts import render
+from decimal import Decimal
 from django.http import HttpResponse, JsonResponse
 from rest_framework.response import Response
 from django.utils import timezone
@@ -60,12 +61,13 @@ def create_preference(request):
 
     try:
         data = json.loads(request.body)
-        plans = data.get('plans', [])
+        plan_names = data.get('plans', [])
         user_id = data.get('user_id')
+        discount_token = data.get('discount_token')
 
-        logger.info(f"Creando preferencia para usuario {user_id} con planes {plans}")
+        logger.info(f"Creando preferencia para usuario {user_id} con planes {plan_names}")
 
-        if not all([plans, user_id]):
+        if not all([plan_names, user_id]):
             return JsonResponse({"error": "Se requieren planes y user_id"}, status=400)
 
         user = get_object_or_404(User, id=user_id)
@@ -74,7 +76,7 @@ def create_preference(request):
         existing_subscriptions = Subscription.objects.filter(
             user=user,
             active=True,
-            plan_id__in=[SubscriptionPlan.objects.get(name=plan_name).id for plan_name in plans]
+            plan__name__in=plan_names
         )
 
         if existing_subscriptions.exists():
@@ -84,18 +86,34 @@ def create_preference(request):
                 "existing_plans": existing_plan_names
             }, status=400)
 
-        total_price = 0
+        total_price = Decimal('0.00')
         items = []
         subscriptions = []
 
-        for plan_name in plans:
+        # Obtener el token de descuento si existe
+        token_discount = None
+        if discount_token:
+            try:
+                token_discount = PaymentTokenDiscount.objects.get(token=discount_token)
+                if not token_discount.is_active():
+                    return JsonResponse({"error": "El token de descuento no está activo"}, status=400)
+            except PaymentTokenDiscount.DoesNotExist:
+                return JsonResponse({"error": "Token de descuento inválido"}, status=400)
+
+        for plan_name in plan_names:
             plan = get_object_or_404(SubscriptionPlan, name=plan_name)
-            total_price += float(plan.price)
+            
+            # Aplicar descuento si el token es válido y aplica al plan
+            discounted_price = Decimal(plan.price)
+            if token_discount and plan in token_discount.subscription_plans.all():
+                discounted_price = discounted_price - (discounted_price * Decimal(token_discount.discount) / 100)
+            
+            total_price += discounted_price
             items.append({
                 "title": plan.description,
                 "quantity": 1,
                 "currency_id": "COP",
-                "unit_price": float(plan.price)
+                "unit_price": float(discounted_price)
             })
 
         preference_data = {
@@ -137,19 +155,24 @@ def create_preference(request):
 
         # Crear una suscripción para cada plan
         start_date = timezone.now()
-        for plan_name in plans:
+        for plan_name in plan_names:
             plan = SubscriptionPlan.objects.get(name=plan_name)
             end_date = start_date + relativedelta(days=plan.duration_days)
 
+            discounted_price = Decimal(plan.price)
+            if token_discount and plan in token_discount.subscription_plans.all():
+                discounted_price = discounted_price - (discounted_price * Decimal(token_discount.discount) / 100)
+
             subscription = Subscription.objects.create(
                 user=user,
+                plan=plan,
                 active=False,
                 start_date=start_date,
                 end_date=end_date,
                 preference_id=preference['id'],
                 site_id=preference.get('site_id'),
                 processing_mode='aggregator',
-                plan_id=plan.id
+                external_reference=str(user.id)
             )
             subscriptions.append(subscription)
 
