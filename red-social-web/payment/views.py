@@ -269,6 +269,8 @@ class RegisterSubscriptionUser(APIView):
             return Response({"success": False, "message": "Invalid or inactive token"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+        return JsonResponse({"success": False, "message": "An unexpected error occurred"}, status=500)
 
 @login_required
 @require_GET
