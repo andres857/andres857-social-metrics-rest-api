@@ -592,9 +592,15 @@ def get_token_details(request, token):
 
 # @ensure_csrf_cookie
 @csrf_exempt
-@api_view(['PUT'])
+@login_required
 def update_token(request, token):
     print(f"Intentando actualizar token: {token}")
+    
+    user_roles = request.user.user_roles.filter(role__identifier__in=ADMIN_ROLE_IDENTIFIERS)
+    
+    if not user_roles.exists():
+        raise PermissionDenied("No tienes permiso para realizar esta acción.")
+    
     try:
         token_discount = PaymentTokenDiscount.objects.get(id=token)
     except ObjectDoesNotExist:
