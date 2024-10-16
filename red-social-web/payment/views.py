@@ -216,6 +216,11 @@ def register_subscription(request):
                 "success": True, 
                 "message": f"Subscriptions registered successfully: {', '.join(subscriptions_created)}"
             }, status=201)
+        else:
+            return JsonResponse({
+                "success": False, 
+                "message": "No new subscriptions were created"
+            }, status=200)
     
     except User.DoesNotExist:
         return JsonResponse({"success": False, "message": "User not found"}, status=404)
@@ -223,6 +228,7 @@ def register_subscription(request):
         return JsonResponse({"success": False, "message": "Invalid or inactive token"}, status=400)
     except Exception as e:
         return JsonResponse({"success": False, "message": str(e)}, status=500)
+    
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterSubscriptionUser(APIView):
