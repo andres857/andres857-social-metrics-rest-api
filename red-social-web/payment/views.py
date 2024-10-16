@@ -606,9 +606,9 @@ def update_token(request, token):
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
-            return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
+            return Response({"success": False, "message": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        data = request.POST
+        data = request.data
     
     try:
         token_discount = PaymentTokenDiscount.objects.get(id=token)
@@ -632,8 +632,7 @@ def update_token(request, token):
     
     serializer = PaymentTokenDiscountSerializer(token_discount)
     return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+
 @csrf_exempt
 @login_required
 def delete_token(request, token):
