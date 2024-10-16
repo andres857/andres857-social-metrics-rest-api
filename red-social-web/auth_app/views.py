@@ -376,7 +376,7 @@ class CustomRegisterView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
-method_decorator(csrf_exempt, name='dispatch')  # Eximir de CSRF para este endpoint
+@method_decorator(csrf_exempt, name='dispatch')  # Eximir de CSRF para este endpoint
 class CSRFTokenView(View):
     def get(self, request, *args, **kwargs):
         csrf_token = get_token(request)  # Obtener el token CSRF
