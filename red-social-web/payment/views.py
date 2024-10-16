@@ -7,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -189,7 +190,10 @@ def register_subscription(request):
 
     try:
         user = User.objects.get(id=user_id)
-        token_obj = PaymentTokensAccess.objects.get(token=token, is_active=True)
+        token_obj = PaymentTokensAccess.objects.get(
+            (Q(title=token) | Q(token=token)), 
+            is_active=True
+        )
         
         subscriptions_created = []
         
@@ -219,9 +223,9 @@ def register_subscription(request):
         else:
             return JsonResponse({
                 "success": True, 
-                "message": "New subscriptions created"
+                "message": "No new subscriptions were created"
             }, status=201)
-    
+
     except User.DoesNotExist:
         return JsonResponse({"success": False, "message": "User not found"}, status=404)
     except PaymentTokensAccess.DoesNotExist:
@@ -564,7 +568,7 @@ def create_token_access(request):
 def get_token_details(request, token):
     try:
         # Intentar encontrar el token en PaymentTokenDiscount
-        token_discount = PaymentTokenDiscount.objects.get(token=token)
+        token_discount = PaymentTokenDiscount.objects.get(title=token)
         plans = [plan.name for plan in token_discount.subscription_plans.all()]
         return Response({
             "token": token_discount.token,
@@ -575,7 +579,7 @@ def get_token_details(request, token):
     except PaymentTokenDiscount.DoesNotExist:
         # Si no se encuentra el token en PaymentTokenDiscount, buscar en PaymentTokensAccess
         try:
-            token_access = PaymentTokensAccess.objects.get(token=token)
+            token_access = PaymentTokensAccess.objects.get(title=token)
             if token_access.is_active:
                 plans = [plan.name for plan in token_access.subscription_plans.all()]
                 return JsonResponse({
