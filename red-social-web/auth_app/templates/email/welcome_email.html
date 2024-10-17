@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bienvenido a Colombia Redes Sociales</title>
-  <style>
+    <style>
         * {
             margin: 0;
             padding: 0;
@@ -24,126 +24,103 @@
         }
         
         .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             background-color: #5003AB;
-            padding: 10px 20px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         
         .logo {
-            width: 150px;
+            height: 40px;
+            width: auto;
+            margin: 0 10px;
+        }
+        
+        .main-image {
+            width: 100%;
             height: auto;
+            margin-bottom: 20px;
         }
         
-        .welcome-section {
+        .content {
             text-align: center;
-            margin-top: 30px;
+            padding: 20px;
         }
         
-        .welcome-section h1 {
+        h1 {
+            color: #E60101;
             font-size: 28px;
-            color: #E60101;
             margin-bottom: 20px;
         }
         
-        .welcome-section p {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .cta-section {
-            text-align: center;
-            margin-top: 40px;
-        }
-        
-        .cta-section h2 {
-            font-size: 24px;
-            color: #E60101;
-            margin-bottom: 20px;
+        p {
+            margin-bottom: 15px;
+            line-height: 1.5;
         }
         
         .cta-button {
             display: inline-block;
-            padding: 15px 30px;
-            background-color: #5003AB;
+            background: linear-gradient(to right, #E60101, #5003AB);
             color: white;
             text-decoration: none;
+            padding: 15px 30px;
             border-radius: 25px;
-            font-size: 18px;
             font-weight: bold;
-        }
-        
-        .cta-button:hover {
-            background-color: #7317DA;
+            margin-top: 20px;
         }
         
         .footer {
-            background-color: #F8F8F8;
+            background-color: #5003AB;
+            color: white;
             padding: 20px;
-            margin-top: 50px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
         .contact-info {
-            font-size: 14px;
-            color: #333;
+            text-align: left;
         }
         
-        .contact-info a {
-            color: #333;
-            text-decoration: none;
+        .contact-info p {
+            margin-bottom: 5px;
         }
         
-        .contact-info a:hover {
-            text-decoration: underline;
+        .social-icons img {
+            height: 50px; /* Aumentado el tamaño del icono */
+            margin-left: 10px;
         }
-        
-        .social-icons {
-            width: 120px;
-            height: auto;
-        }
-        
     </style>
-    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <!-- Encabezado con logotipos -->
         <header class="header">
             <img src="https://i.ibb.co/kh18ttf/RSCOLOMBIA-WHITE.png" alt="RS Colombia Logo" class="logo">
             <img src="https://i.ibb.co/1KvsyPJ/logo-windowschannel.png" alt="Windows Channel Logo" class="logo">
         </header>
 
-        <!-- Sección de bienvenida -->
-        <section class="welcome-section">
-            <img src="https://i.ibb.co/k6x4Dtt/redes-sociales-bienvenida.png" alt="Iconos redes sociales" class="social-icons">
+        <main class="content">
+            <img src="https://i.ibb.co/k6x4Dtt/redes-sociales-bienvenida.png" alt="Main Image" class="main-image">
 
             <h1>¡Bienvenido a Colombia Redes Sociales!</h1>
             <p>Acabas de dar el primer paso para potenciar tu impacto digital. Aquí, los datos y las redes se alinean para llevar tu estrategia de redes sociales al siguiente nivel.</p>
             <p>Prepárate para descubrir estadísticas importantes y optimizar tu contenido.</p>
-        </section>
 
-        <!-- Llamada a la acción -->
-        <section class="cta-section">
-            <h2>¡Estamos listos para acompañarte en esta experiencia!</h2>
-            <a href="{% url 'verificar-correo' %}" class="cta-button">VERIFICA TU CORREO AQUÍ</a>
-        </section>
+            <h2 style="color: #E60101; margin-top: 30px; margin-bottom: 20px;">¡Estamos listos para acompañarte en esta experiencia!</h2>
+            <a href="#" class="cta-button">VERIFICA TU CORREO AQUÍ</a>
+        </main>
 
-        <!-- Información de contacto -->
         <footer class="footer">
             <div class="contact-info">
-                <p><strong>Windows Channel</strong><br>
-                Carrera 14 No. 93B-45,<br>
-                110231, Bogotá</p>
-                <p><a href="mailto:colombiaredessociales@windowschannel.com">colombiaredessociales@windowschannel.com</a><br>
-                110231</p>
+                <p><strong>Windows Channel</strong></p>
+                <p>Carrera 14 No. 93B-45,</p>
+                <p>110231, Bogotá</p>
+                <p>colombiaredessociales@windowschannel.com</p>
+                <p>110231</p>
             </div>
-            <div class="social-media">
-                <img src="https://i.ibb.co/r77F7xM/icono.png" alt="Iconos redes sociales" class="social-icons">
+            <div class="social-icons">
+                <img src="https://i.ibb.co/r77F7xM/icono.png" alt="Social Media Icons">
             </div>
         </footer>
     </div>
