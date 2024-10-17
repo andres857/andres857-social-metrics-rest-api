@@ -177,6 +177,31 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
             # Connect the social account to the new user
             sociallogin.connect(request, user)
+            
+            # Enviar correo de bienvenida
+            self.send_welcome_email(user)
+            
+            def send_welcome_email(self, user):
+                context = {
+                    'user': user,
+                    'verification_url': 'https://stats.colombiaredessociales.com/',
+                    # Añade aquí cualquier otra variable de contexto que necesites
+                }
+                
+                email_html_message = render_to_string('email/welcome_email.html', context)
+
+                try:
+                    send_mail(
+                        'Bienvenido a RS Colombia',
+                        f'Hola {user.username}, bienvenido a nuestra plataforma.',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email],
+                        fail_silently=False,
+                        html_message=email_html_message,
+                    )
+                    logger.info(f"Correo de bienvenida enviado a: {user.email}")
+                except Exception as e:
+                    logger.error(f"Error al enviar correo de bienvenida a {user.email}: {str(e)}")
 
         else:
             # Si el usuario ya existe, actualizamos la información si es necesario
