@@ -17,6 +17,8 @@ urlpatterns = [
     path('stats', views.manage_stats, name='stats'),
 
     path('followers', views.followers_uniques, name='followers'),
+    path('followers/compensacion', views.followers_uniques_compensacion, name='followers-compensacion'),
+
     path('followers/social-networks', views.followers_uniques_by_social_networks, name='followers-social-networks'),
     path('followers/social-networks/compensacion', views.followers_uniques_by_social_networks_compensacion, name='followers-social-networks-compensacion'),
 
