@@ -363,6 +363,9 @@ class CustomRegisterView(APIView):
                 # Iniciar sesión manualmente
                 login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                 
+                # Enviar correo de bienvenida
+                self.send_welcome_email(user)
+                
                 logger.info(f"Usuario autenticado y sesión iniciada: {user.email}")
                 return Response({
                     "user": UserSerializer(user).data,
@@ -374,6 +377,28 @@ class CustomRegisterView(APIView):
             "errors": serializer.errors,
             "detail": "El registro falló. Por favor, verifica los campos de entrada."
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_welcome_email(self, user):
+        context = {
+            'user': user,
+            'verification_url': 'http://localhost:3000/',
+            # Añade aquí cualquier otra variable de contexto que necesites
+        }
+        
+        email_html_message = render_to_string('email/welcome_email.html', context)
+
+        try:
+            send_mail(
+                'Bienvenido a RS Colombia',
+                f'Hola {user.username}, bienvenido a nuestra plataforma.',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+                html_message=email_html_message,
+            )
+            logger.info(f"Correo de bienvenida enviado a: {user.email}")
+        except Exception as e:
+            logger.error(f"Error al enviar correo de bienvenida a {user.email}: {str(e)}")
 
 
 @method_decorator(csrf_exempt, name='dispatch')  # Eximir de CSRF para este endpoint
