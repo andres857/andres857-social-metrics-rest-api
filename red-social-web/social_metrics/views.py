@@ -1694,7 +1694,7 @@ def followers_uniques_by_social_networks_compensacion(request):
     poblation_by_year = [
         {
             "year": 2016,
-            "population": 17000000,
+            "members": 17000000,
             "social_networks": {
                 "facebook": 28000000,
                 "X": 3000000,
@@ -1705,7 +1705,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2017,
-            "population": 17500000,
+            "members": 17500000,
             "social_networks": {
                 "facebook": 296000000,
                 "X": 3400000,
@@ -1716,7 +1716,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2018,
-            "population": 18000000,
+            "members": 18000000,
             "social_networks": {
                 "facebook": 30500000,
                 "X": 3600000,
@@ -1727,7 +1727,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2019,
-            "population": 18500000,
+            "members": 18500000,
             "social_networks": {
                 "facebook": 31500000,
                 "X": 3900000,
@@ -1738,7 +1738,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2020,
-            "population": 19600000,
+            "members": 19600000,
             "social_networks": {
                 "facebook": 32000000,
                 "X": 4000000,
@@ -1749,7 +1749,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2021,
-            "population": 19900000,
+            "members": 19900000,
             "social_networks": {
                 "facebook": 32100000,
                 "X": 4200000,
@@ -1760,7 +1760,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2022,
-            "population": 20800000,
+            "members": 20800000,
             "social_networks": {
                 "facebook": 32000000,
                 "X": 4800000,
@@ -1771,7 +1771,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2023,
-            "population": 21000000,
+            "members": 21000000,
             "social_networks": {
                 "facebook": 31800000,
                 "X": 5600000,
@@ -1782,7 +1782,7 @@ def followers_uniques_by_social_networks_compensacion(request):
         },
         {
             "year": 2024,
-            "population": 21000000,
+            "members": 21000000,
             "social_networks": {
                 "facebook": 31800000,
                 "X": 5600000,
@@ -1800,6 +1800,7 @@ def followers_uniques_by_social_networks_compensacion(request):
     for year in poblation_by_year:
         if year['year'] == year_request:
             print('item',year)
+            members = year['members']
             penetration_facebook = round(unique_followers['unique_followers']['facebook']/year['social_networks']['facebook'] * 100, 2)
             penetration_X = round(unique_followers['unique_followers']['X']/year['social_networks']['X'] * 100, 2)
             penetration_Instagram = round(unique_followers['unique_followers']['Instagram']/year['social_networks']['Instagram'] * 100, 2)
@@ -1820,6 +1821,7 @@ def followers_uniques_by_social_networks_compensacion(request):
 
     return Response({
         "date_stat": year_request,
+        "members": members,
         "social_networks": {
             "Facebook":{
                 "unique_followers": unique_followers['unique_followers']['facebook'],
