@@ -17,8 +17,10 @@ urlpatterns = [
     path('stats', views.manage_stats, name='stats'),
 
     path('followers', views.followers_uniques, name='followers'),
+    path('followers/compensacion', views.followers_uniques_compensacion, name='followers-compensacion'),
+
     path('followers/social-networks', views.followers_uniques_by_social_networks, name='followers-social-networks'),
-    path('followers/social-networks/compensacion', views.followers_uniques_by_social_networks_compensacion, name='followers-social-networks-compensacion'),
+    path('followers/social-networks/compensacion', views.followers_uniques_compensacion, name='followers-social-networks-compensacion'),
 
     path('youtube/statistics/', views.get_channel_stats_youtube_api_function, name='data_youtube'),
     path('youtube/bulk-statistics/', views.bulk_channel_stats, name='youtube_bulk_stats'),
