@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.http import require_POST
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from rest_framework.decorators import api_view
@@ -351,6 +353,29 @@ def payment_success(request):
 
             logger.info(f"Suscripción activada para el usuario {user.id}. Plan: {subscription.plan.name}, Válida hasta: {subscription.end_date}")
 
+            # Enviar correo de bienvenida
+            send_confirmation_email(user)
+            
+            def send_confirmation_email(self, user):
+                context = {
+                    'user': user,
+                }
+                
+                email_html_message = render_to_string('email/payment_confirmation_email.html', context)
+
+                try:
+                    send_mail(
+                        '¡Tu pago ha sido confirmado! Bienvenido a Colombia Redes Sociales',
+                        f'Hola {user.username}, bienvenido a nuestra plataforma.',
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email],
+                        fail_silently=False,
+                        html_message=email_html_message,
+                    )
+                    logger.info(f"Correo de bienvenida enviado a: {user.email}")
+                except Exception as e:
+                    logger.error(f"Error al enviar correo de bienvenida a {user.email}: {str(e)}")
+                    
         return render(request, 'payment_success.html', {
             'user': user,
             'subscriptions': subscriptions,
