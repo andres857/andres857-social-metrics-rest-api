@@ -9,6 +9,13 @@ SECRET_KEY = 'django-insecure-_20tbl%h8v*e#6wp%y758+w0ulg-w-c#5banfbp^f2)h@dpt(h
 YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY')
 BASE_URL = os.environ.get('BASE_URL') # backend url 
 FRONTEND_URL = os.environ.get('FRONTEND_URL') # backend url 
+# SMTP2TOGO
+EMAIL_HOST = os.environ.get('EMAIL_HOST')
+EMAIL_PORT = os.environ.get('EMAIL_PORT')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 
 print("FRONTEND_URL", FRONTEND_URL)
 print("BASE_URL", BASE_URL)
@@ -255,13 +262,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 #EMAIL_HOST_USER = ''
 #EMAIL_HOST_PASSWORD = ''
 
-# SMTP2TOGO
-EMAIL_HOST=os.environ.get('EMAIL_HOST')
-EMAIL_PORT=os.environ.get('EMAIL_PORT')
-EMAIL_USE_TLS=os.environ.get('EMAIL_USE_TLS')
-EMAIL_HOST_USER=os.environ.get('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD=os.environ.get('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL=os.environ.get('DEFAULT_FROM_EMAIL')
+print("EMAIL_HOST", EMAIL_HOST)
+print("EMAIL_PORT", EMAIL_PORT)
 
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
