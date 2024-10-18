@@ -239,6 +239,10 @@ def register_subscription(request):
                 status='approved'
             )
             subscriptions_created.append(plan.name)
+
+        # Enviar correo de bienvenida solo si se crearon nuevas suscripciones
+        if subscriptions_created:
+            send_confirmation_email(user)
         
         if subscriptions_created:
             return JsonResponse({
@@ -257,6 +261,26 @@ def register_subscription(request):
         return JsonResponse({"success": False, "message": "Invalid or inactive token"}, status=400)
     except Exception as e:
         return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+def send_confirmation_email(user):
+    context = {
+        'user': user,
+    }
+        
+    email_html_message = render_to_string('email/payment_access_token_email.html', context)
+
+    try:
+        send_mail(
+            '¡Has ingresado con éxito utilizando tu token de acceso en Colombia Redes Sociales!',
+            f'Hola {user.username}, has accedido exitosamente a nuestra plataforma con tu token.',
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+            html_message=email_html_message,
+        )
+        logger.info(f"Correo de bienvenida enviado a: {user.email}")
+    except Exception as e:
+        logger.error(f"Error al enviar correo de bienvenida a {user.email}: {str(e)}")
     
 
 @method_decorator(csrf_exempt, name='dispatch')
