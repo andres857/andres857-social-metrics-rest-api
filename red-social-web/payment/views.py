@@ -228,7 +228,7 @@ def register_subscription(request):
                 continue
             
             start_date = timezone.now()
-            end_date = start_date + timedelta(days=180)
+            end_date = start_date + timedelta(days=30)
             
             new_sub = Subscription.objects.create(
                 user=user,
